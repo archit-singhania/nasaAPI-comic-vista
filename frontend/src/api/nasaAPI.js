@@ -93,6 +93,10 @@ export const fetchNeoAnalyze = async (data) => {
   }
 };
 
+// ================================
+// 🌍 EPIC API Methods
+// ================================
+
 export const fetchEpicNatural = async (params = {}) => {
   try {
     return await api.get('/api/epic/natural', { params });
@@ -100,6 +104,70 @@ export const fetchEpicNatural = async (params = {}) => {
     handleApiError(error);
   }
 };
+
+export const fetchEpicNaturalByDate = async (date, params = {}) => {
+  if (!date) throw new Error('Date is required');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error('Invalid date format. Use YYYY-MM-DD');
+  }
+  try {
+    return await api.get(`/api/epic/natural/date/${date}`, { params });
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
+export const fetchEpicNaturalDates = async (params = {}) => {
+  try {
+    return await api.get('/api/epic/natural/available', { params });
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
+export const fetchEpicEnhanced = async (params = {}) => {
+  try {
+    return await api.get('/api/epic/enhanced', { params });
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
+export const fetchEpicEnhancedByDate = async (date, params = {}) => {
+  if (!date) throw new Error('Date is required');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error('Invalid date format. Use YYYY-MM-DD');
+  }
+  try {
+    return await api.get(`/api/epic/enhanced/date/${date}`, { params });
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
+export const fetchEpicEnhancedDates = async (params = {}) => {
+  try {
+    return await api.get('/api/epic/enhanced/available', { params });
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
+export const getEpicImageUrl = (image, type = 'natural', format = 'jpg') => {
+  if (!image || !image.image || !image.date) {
+    throw new Error('Invalid image object. Must contain "image" and "date" properties.');
+  }
+
+  const NASA_API_KEY = process.env.VITE_NASA_API_KEY || process.env.REACT_APP_NASA_API_KEY || 'DEMO_KEY';
+  const date = image.date.split(' ')[0]; 
+  const archiveDate = date.replace(/-/g, '/'); 
+  
+  return `https://api.nasa.gov/EPIC/archive/${type}/${archiveDate}/${format}/${image.image}.${format}?api_key=${NASA_API_KEY}`;
+};
+
+// ================================
+// 🌎 Other NASA API Methods
+// ================================
 
 export const fetchDonki = async (eventType, params = {}) => {
   try {

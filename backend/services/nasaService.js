@@ -158,8 +158,60 @@ class NasaService {
     if (endpoint.includes('/planetary/apod')) {
       return 'No Astronomy Picture of the Day found for the specified date.';
     }
+    if (endpoint.includes('/EPIC/')) {
+      return 'No EPIC images available for the specified date or parameters.';
+    }
     return 'Requested resource not found. Please check your parameters.';
   }
+
+  // ================================
+  // EPIC API Methods
+  // ================================
+
+  async getEpicNatural(params = {}) {
+    return this.fetchFromApi('/EPIC/api/natural/images', params);
+  }
+
+  async getEpicNaturalByDate(date, params = {}) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new Error('Invalid date format. Use YYYY-MM-DD');
+    }
+    return this.fetchFromApi(`/EPIC/api/natural/date/${date}`, params);
+  }
+
+  async getEpicNaturalDates(params = {}) {
+    return this.fetchFromApi('/EPIC/api/natural/available', params);
+  }
+
+  async getEpicEnhanced(params = {}) {
+    return this.fetchFromApi('/EPIC/api/enhanced/images', params);
+  }
+
+  async getEpicEnhancedByDate(date, params = {}) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new Error('Invalid date format. Use YYYY-MM-DD');
+    }
+    return this.fetchFromApi(`/EPIC/api/enhanced/date/${date}`, params);
+  }
+
+  async getEpicEnhancedDates(params = {}) {
+    return this.fetchFromApi('/EPIC/api/enhanced/available', params);
+  }
+
+  buildEpicImageUrl(image, type = 'natural', format = 'jpg') {
+    if (!image || !image.image || !image.date) {
+      throw new Error('Invalid image object. Must contain "image" and "date" properties.');
+    }
+
+    const date = image.date.split(' ')[0]; 
+    const archiveDate = date.replace(/-/g, '/'); 
+    
+    return `${this.baseURL}/EPIC/archive/${type}/${archiveDate}/${format}/${image.image}.${format}?api_key=${this.apiKey}`;
+  }
+
+  // ================================
+  // Other API Methods 
+  // ================================
 
   async getEarthImagery(params) {
     try {
