@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Heart, Calendar, Share2, Download, Play, Pause, Volume2, VolumeX, Maximize, Star, Bookmark, Eye, Clock, Camera, Film, Award, Sparkles, ArrowRight, ChevronDown, Search, Filter, TrendingUp, Globe, Rocket, Telescope, ChevronLeft, MoreHorizontal, ExternalLink, Fullscreen, ZoomIn, Info, Image as ImageIcon } from 'lucide-react';
 
 const PremiumApodViewer = () => {

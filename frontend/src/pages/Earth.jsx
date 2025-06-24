@@ -1,4 +1,3 @@
-import React from 'react';
 import EarthMap from '../components/EarthMap';
 
 export default function Earth() {

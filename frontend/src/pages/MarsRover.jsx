@@ -1,4 +1,3 @@
-import React from 'react';
 import MarsRoverGallery from '../components/MarsRoverGallery';
 
 const MarsRover = () => (

@@ -1,4 +1,3 @@
-import React from 'react';
 import EonetMap from '../components/EonetMap';
 
 export default function Eonet() {

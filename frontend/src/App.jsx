@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/common/Navbar';
 import Home from './pages/Home';
@@ -11,6 +10,7 @@ import Donki from './pages/Donki';
 import Eonet from './pages/Eonet';
 import Insight from './pages/Insight';
 import Exoplanet from './pages/Exoplanet';
+import Osdr from './pages/Osdr';
 import MediaLibrary from './pages/MediaLibrary';
 import TechTransfer from './pages/TechTransfer';
 import Tle from './pages/Tle';
@@ -135,7 +135,15 @@ function App() {
                     </div>
                   </div>
                 } />
-                
+
+                <Route path="/osdr" element={
+                  <div className="pt-24 px-4 sm:px-8 lg:px-12 max-w-7xl mx-auto">
+                    <div className="bg-black/60 backdrop-blur-xl rounded-3xl border border-white/5 shadow-2xl min-h-[calc(100vh-8rem)] p-8">
+                      <Osdr />
+                    </div>
+                  </div>
+                } />
+
                 <Route path="/media-library" element={
                   <div className="pt-24 px-4 sm:px-8 lg:px-12 max-w-7xl mx-auto">
                     <div className="bg-black/60 backdrop-blur-xl rounded-3xl border border-white/5 shadow-2xl min-h-[calc(100vh-8rem)] p-8">

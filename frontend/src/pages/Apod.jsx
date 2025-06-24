@@ -1,4 +1,3 @@
-import React from 'react';
 import ApodViewer from '../components/ApodViewer';
 
 const Apod = () => (

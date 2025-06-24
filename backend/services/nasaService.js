@@ -11,10 +11,15 @@ class NasaService {
 
   async fetchFromApi(endpoint, params = {}, options = {}) {
     try {
-      const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+      const normalizedEndpoint = endpoint.startsWith('http') ? endpoint : (
+        endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+      );
+
       const baseUrl = options.baseURL || this.baseURL;
-      const fullUrl = `${baseUrl}${normalizedEndpoint}`;
-      
+      const fullUrl = normalizedEndpoint.startsWith('http') 
+        ? normalizedEndpoint 
+        : `${baseUrl}${normalizedEndpoint}`;
+
       console.log(`[NASA API] Fetching: ${fullUrl}`);
       console.log(`[NASA API] Parameters:`, params);
 
@@ -328,8 +333,98 @@ class NasaService {
     return this.fetchFromApi(`/mars-photos/api/v1/rovers/${rover}/photos`, params);
   }
 
+  async getExoplanet(params = {}) {
+    if (params.query) {
+      try {
+        const response = await axios.get('https://exoplanetarchive.ipac.caltech.edu/TAP/sync', {
+          params: {
+            query: params.query,
+            format: params.format || 'json'
+          },
+          timeout: 30000,
+          headers: {
+            'User-Agent': 'NASA-Exoplanet-Client/1.0'
+          }
+        });
+        return response.data;
+      } catch (error) {
+        throw this.handleApiError(error, '/api/exoplanet');
+      }
+    }
+    return this.fetchFromApi('/api/exoplanet', params);
+  }
+
   async customEndpoint(endpoint, params = {}, options = {}) {
     return this.fetchFromApi(endpoint, params, options);
+  }
+
+  // ================================
+  // OSDR API Methods
+  // ================================
+
+  async getOsdrStudies(params = {}) {
+    return this.fetchFromApi('/osdr/api/studies', params);
+  }
+
+  async getOsdrStudyById(studyId, params = {}) {
+    if (!studyId) {
+      throw new Error('Study ID is required');
+    }
+    return this.fetchFromApi(`/osdr/api/studies/${studyId}`, params);
+  }
+
+  async getOsdrDatasets(params = {}) {
+    return this.fetchFromApi('/osdr/api/datasets', params);
+  }
+
+  async getOsdrDatasetById(datasetId, params = {}) {
+    if (!datasetId) {
+      throw new Error('Dataset ID is required');
+    }
+    return this.fetchFromApi(`/osdr/api/datasets/${datasetId}`, params);
+  }
+
+  async getOsdrSubjects(params = {}) {
+    return this.fetchFromApi('/osdr/api/subjects', params);
+  }
+
+  async getOsdrSubjectById(subjectId, params = {}) {
+    if (!subjectId) {
+      throw new Error('Subject ID is required');
+    }
+    return this.fetchFromApi(`/osdr/api/subjects/${subjectId}`, params);
+  }
+
+  async getOsdrSamples(params = {}) {
+    return this.fetchFromApi('/osdr/api/samples', params);
+  }
+
+  async getOsdrSampleById(sampleId, params = {}) {
+    if (!sampleId) {
+      throw new Error('Sample ID is required');
+    }
+    return this.fetchFromApi(`/osdr/api/samples/${sampleId}`, params);
+  }
+
+  async getOsdrAssays(params = {}) {
+    return this.fetchFromApi('/osdr/api/assays', params);
+  }
+
+  async getOsdrAssayById(assayId, params = {}) {
+    if (!assayId) {
+      throw new Error('Assay ID is required');
+    }
+    return this.fetchFromApi(`/osdr/api/assays/${assayId}`, params);
+  }
+
+  async searchOsdr(searchTerm, params = {}) {
+    if (!searchTerm) {
+      throw new Error('Search term is required');
+    }
+    return this.fetchFromApi('/osdr/api/search', {
+      term: searchTerm,
+      ...params
+    });
   }
 }
 
@@ -339,7 +434,11 @@ module.exports = {
   NasaService,
   nasaService,
   fetchFromNasa: (url, params, options) => {
-    const endpoint = url.replace('https://api.nasa.gov', '');
-    return nasaService.fetchFromApi(endpoint, params, options);
+    if (url.startsWith('http')) {
+      return nasaService.fetchFromApi(url, params, { baseURL: '', ...options });
+    } else {
+      const endpoint = url.replace('https://api.nasa.gov', '');
+      return nasaService.fetchFromApi(endpoint, params, options);
+    }
   }
 };

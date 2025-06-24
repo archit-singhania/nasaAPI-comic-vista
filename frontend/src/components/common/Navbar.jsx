@@ -1,4 +1,3 @@
-import React from 'react';
 import { NavLink } from 'react-router-dom';
 
 const links = [
@@ -12,6 +11,7 @@ const links = [
   { name: 'EONET', path: '/eonet' },
   { name: 'Insight', path: '/insight' },
   { name: 'Exoplanet', path: '/exoplanet' },
+  { name: 'OSDR', path: '/osdr' },
   { name: 'Media', path: '/media' },
   { name: 'TechTransfer', path: '/techtransfer' },
   { name: 'TLE', path: '/tle' },
