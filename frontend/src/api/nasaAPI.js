@@ -426,24 +426,6 @@ export const fetchEonetSources = async () => {
   }
 };
 
-export const fetchEonetEvent = async (id) => {
-  if (!id) throw new Error('Event ID is required');
-  try {
-    return await api.get(`/api/eonet/events/${id}`);
-  } catch (error) {
-    handleApiError(error);
-  }
-};
-
-export const fetchEonetEventsByCategory = async (categoryId, params = {}) => {
-  if (!categoryId) throw new Error('Category ID is required');
-  try {
-    return await api.get(`/api/eonet/categories/${categoryId}/events`, { params });
-  } catch (error) {
-    handleApiError(error);
-  }
-};
-
 export const fetchEonetStats = async (params = {}) => {
   try {
     return await api.get('/api/eonet/stats', { params });
