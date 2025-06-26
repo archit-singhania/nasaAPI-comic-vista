@@ -344,7 +344,7 @@ function Home() {
           playsInline
           className="w-full h-full object-cover"
         >
-          <source src="https://drive.google.com/file/d/19lHg4H8YRuG27O4N82NNHCI9679SlCNP/view?usp=sharing" type="video/mp4" />
+          <source src="https://nasaapi-comic-vista-backend.onrender.com/static/nasa-landing-page-vid.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-black/60" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />

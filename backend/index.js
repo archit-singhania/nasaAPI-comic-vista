@@ -26,6 +26,8 @@ app.get('/', (req, res) => {
   res.send('NASA Cosmic Vista Backend Running 🚀');
 });
 
+app.use('/static', express.static(path.join(__dirname, 'public')));
+
 app.use('/api/apod', require('./routes/apod'));
 app.use('/api/mars', require('./routes/marsRover'));
 app.use('/api/neo', require('./routes/neows'));
