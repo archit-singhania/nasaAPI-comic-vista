@@ -46,11 +46,7 @@ class NasaService {
         };
 
         const response = await axios.get(fullUrl, config);
-        
-        console.log(`[NASA API] Success on attempt ${attempt}`);
-        console.log(`[NASA API] Response Status: ${response.status}`);
-        console.log(`[NASA API] Content Type: ${response.headers['content-type']}`);
-        
+
         return this.processResponse(response, endpoint);
         
       } catch (error) {
@@ -61,7 +57,6 @@ class NasaService {
         }
         
         if (attempt < this.maxRetries) {
-          console.log(`[NASA API] Waiting ${this.retryDelay}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, this.retryDelay));
           this.retryDelay *= 1.5; 
         }
@@ -236,9 +231,6 @@ class NasaService {
   // ================================
 
   async getTechTransferPatents(params = {}) {
-    console.log('🔍 NasaService: Getting Tech Transfer Patents');
-    console.log('🔍 Parameters:', params);
-
     const endpoint = '/techtransfer/patent/';
     
     try {
@@ -252,9 +244,6 @@ class NasaService {
   }
 
   async getTechTransferSoftware(params = {}) {
-      console.log('🔍 NasaService: Getting Tech Transfer Software');
-      console.log('🔍 Parameters:', params);
-
       const endpoint = '/techtransfer/software/';
       
       try {
@@ -267,9 +256,6 @@ class NasaService {
   }
 
   async getTechTransferSpinoffs(params = {}) {
-      console.log('🔍 NasaService: Getting Tech Transfer Spinoffs');
-      console.log('🔍 Parameters:', params);
-
       const endpoint = '/techtransfer/spinoff/';
       
       try {
@@ -283,11 +269,6 @@ class NasaService {
 
 
   async searchTechTransfer(searchTerm, category = 'patents', params = {}) {
-    console.log('🔍 NasaService: Searching Tech Transfer');
-    console.log('🔍 Search Term:', searchTerm);
-    console.log('🔍 Category:', category);
-    console.log('🔍 Additional Parameters:', params);
-
     if (!searchTerm) {
       throw new Error('Search term is required for Tech Transfer search');
     }
@@ -330,7 +311,6 @@ class NasaService {
   }
 
   async testTechTransferEndpoint(category, searchTerm = 'test') {
-    console.log(`🧪 NasaService: Testing Tech Transfer ${category} endpoint`);
     
     const validCategories = ['patent', 'software', 'spinoff'];
     if (!validCategories.includes(category)) {
@@ -421,6 +401,55 @@ class NasaService {
   // ================================
   // Other API Methods 
   // ================================
+
+  async getDonkiEvents(eventType, queryParams = {}) {
+    Object.keys(queryParams).forEach(key => {
+      if (queryParams[key] === '' || queryParams[key] === undefined || queryParams[key] === null) {
+        delete queryParams[key];
+      }
+    });
+
+    try {
+      const response = await this.fetchFromApi(`/DONKI/${eventType}`, queryParams);
+      let transformedData = response;
+      
+      if (eventType === 'notifications' && Array.isArray(response)) {
+        transformedData = response.map(event => ({
+          ...event,
+          eventType: 'notification',
+          timestamp: event.messageIssueTime
+        }));
+      }
+      
+      if (eventType !== 'notifications' && Array.isArray(response)) {
+        transformedData = response.map(event => ({
+          ...event,
+          eventType: eventType.toUpperCase(),
+          timestamp: event.beginTime || event.eventTime || event.peakTime
+        }));
+      }
+
+      return {
+        success: true,
+        eventType,
+        count: Array.isArray(transformedData) ? transformedData.length : 0,
+        data: transformedData,
+        queryParams: queryParams
+      };
+    } catch (error) {
+      if (error.message.includes('404') || error.message.includes('No events found')) {
+        return {
+          success: true,
+          eventType,
+          count: 0,
+          data: [],
+          queryParams: queryParams,
+          message: 'No space weather events found for the specified parameters'
+        };
+      }
+      throw error;
+    }
+  }
 
   async getEarthImagery(params) {
     try {
@@ -544,7 +573,6 @@ class NasaService {
       const data = await this.fetchFromApi(`/mars-photos/api/v1/rovers/${rover}/photos`, params);
       
       const photos = data.photos || [];
-      console.log(`✅ NASA API returned ${photos.length} photos`);
       
       return photos;
     } catch (error) {
@@ -567,8 +595,6 @@ class NasaService {
         total_photos: rover.total_photos
       })) || [];
       
-      console.log(`✅ NASA API returned ${rovers.length} rovers`);
-      
       return { rovers };
     } catch (error) {
       return {
@@ -584,7 +610,6 @@ class NasaService {
 
   async getCameras(rover) {
     try {
-      console.log(`📷 Fetching cameras for ${rover}...`);
       
       const manifest = await this.fetchFromApi(`/mars-photos/api/v1/manifests/${rover}`);
       const photos = manifest?.photo_manifest?.photos || [];
@@ -597,13 +622,11 @@ class NasaService {
       });
       
       const cameras = Array.from(allCameras);
-      console.log(`📷 Found ${cameras.length} cameras for ${rover}:`, cameras);
       
       return cameras;
     } catch (error) {
       console.error(`❌ Error fetching cameras for ${rover}:`, error);
       const defaultCameras = ['FHAZ', 'RHAZ', 'MAST', 'CHEMCAM', 'MAHLI', 'MARDI', 'NAVCAM'];
-      console.log(`📷 Using default cameras for ${rover}:`, defaultCameras);
       return defaultCameras;
     }
   }
@@ -715,7 +738,6 @@ class NasaService {
       credits: 'NASA Moon/Mars Trek WMTS'
     };
   }
-
 
   // ================================
   // OSDR API Methods

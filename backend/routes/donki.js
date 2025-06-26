@@ -92,8 +92,6 @@ router.get('/:eventType', async (req, res) => {
       }
     });
     
-    console.log(`Fetching DONKI ${eventType} events:`, { url, queryParams });
-    
     const response = await fetchFromNasa(url, queryParams);
     const data = response.data || response; 
     
@@ -124,8 +122,6 @@ router.get('/:eventType', async (req, res) => {
     });
     
   } catch (err) {
-    console.error(`Error fetching DONKI ${req.params.eventType} events:`, err);
-    
     if (err.response) {
       const status = err.response.status;
       const message = err.response.data?.error_message || err.message;

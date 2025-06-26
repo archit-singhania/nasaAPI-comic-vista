@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { fetchDonki } from '../api/nasaAPI';
-import Loader from '../components/common/Loader';
 import DonkiEvents from '../components/DonkiEvents';
 import { 
   Zap, 
@@ -13,11 +12,13 @@ import {
   Bell,
   RefreshCw,
   Sparkles,
-  ChevronDown,
+  Star,
+  Activity,
   Filter,
-  Calendar,
-  Activity
+  ChevronDown,
+  Calendar
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function Donki() {
   const [events, setEvents] = useState([]);
@@ -26,6 +27,20 @@ export default function Donki() {
   const [eventType, setEventType] = useState('notifications');
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+
+  const getColor = (color) => {
+    switch (color) {
+      case 'yellow': return '#FACC15';  
+      case 'purple': return '#A855F7';  
+      case 'blue': return '#3B82F6';    
+      case 'red': return '#EF4444';      
+      case 'green': return '#22C55E';    
+      case 'orange': return '#F97316';  
+      case 'pink': return '#EC4899';    
+      case 'gray': return '#9CA3AF';    
+      default: return '#FFFFFF';
+    }
+  };
 
   const eventTypes = [
     { 
@@ -93,14 +108,15 @@ export default function Donki() {
     
     try {
       const response = await fetchDonki(type);
+      
       if (!response) {
         throw new Error('No response received');
       }
-      const eventsData = response.data?.data || response.data || response || [];
+      
+      const eventsData = response.data || [];
       setEvents(Array.isArray(eventsData) ? eventsData : []);
     } catch (err) {
       setError(`Failed to fetch ${type} events: ${err.message}`);
-      console.error('Error fetching DONKI data:', err);
       setEvents([]);
     } finally {
       setLoading(false);
@@ -114,6 +130,7 @@ export default function Donki() {
 
   const handleEventTypeChange = (newType) => {
     setEventType(newType);
+    setShowFilters(false); 
   };
 
   const handleRefresh = () => {
@@ -155,31 +172,50 @@ export default function Donki() {
         background: 'radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)'
       }}
     >
-      <div className="relative z-10 container mx-auto px-6 pb-12">
-        <div className="text-center mb-8 pt-8">
-          <div className="inline-flex items-center gap-4 px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 backdrop-blur-xl mb-8">
-            <Sparkles className="w-8 h-8 text-purple-400" />
-            <h1 className="text-5xl font-bold text-white">
-              Space Weather Monitor
-            </h1>
-            <Sparkles className="w-8 h-8 text-pink-400" />
+      <motion.div 
+        className="relative z-10 container mx-auto px-6 pb-12"
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+      >
+        <motion.div 
+          className="text-center mb-2 pt-4"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+        >
+        <div className="flex items-center justify-between px-4 py-4 rounded-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 backdrop-blur-xl mb-4 w-full max-w-6xl mx-auto">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-white" />
+            <Sparkles className="w-6 h-6 text-white" />
           </div>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
+          <div className="flex items-center justify-center flex-grow">
+           <h1 className="flex items-center text-xl font-bold text-white">
+            <Star className="w-14 h-14 text-yellow-400 ml-4 animate-spin" style={{ animationDuration: '4s' }} />
+            <span className="mx-4">SPACE WEATHER MONITOR</span>
+            <Star className="w-14 h-14 text-yellow-400 ml-4 animate-spin" style={{ animationDuration: '4s' }} />
+          </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-white" />
+            <Sparkles className="w-6 h-6 text-white" />
+          </div>
+        </div>
+          <p className="text-xl text-white max-w-3xl mx-auto leading-relaxed">
             Real-time monitoring of space weather events from NASA's DONKI (Database of Notifications, Knowledge, Information).
             Track solar flares, coronal mass ejections, and other cosmic phenomena that affect Earth.
+            Also monitoring of cosmic events affecting Earth's electromagnetic environment.
           </p>
-        </div>
+        </motion.div>
 
         <div className="mb-12 space-y-6">
           <div className="flex items-center justify-between">
             <button
-              onClick={() => setShowFilters(!showFilters)}
+              onClick={() => setShowFilters(true)}
               className="flex items-center gap-3 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 backdrop-blur-xl text-white hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300"
             >
               <Filter className="w-5 h-5" />
-              <span className="font-semibold">
-                Event Filters
-              </span>
+              <span className="font-semibold text-white">Event Filters</span>
               <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${showFilters ? 'rotate-180' : ''}`} />
             </button>
             
@@ -196,96 +232,88 @@ export default function Donki() {
           </div>
 
           {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-6 rounded-2xl bg-gradient-to-r from-gray-900/80 to-slate-900/80 border border-gray-700/50 backdrop-blur-xl">
-              {eventTypes.map((type) => (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-gray-900 p-8 rounded-2xl shadow-lg w-full max-w-3xl relative mx-4">
                 <button
-                  key={type.value}
-                  onClick={() => handleEventTypeChange(type.value)}
-                  className={`group relative p-4 rounded-xl border-2 backdrop-blur-xl transition-all duration-300 hover:scale-105 ${
-                    eventType === type.value
-                      ? `bg-gradient-to-br ${getEventTypeColors(type.color)} shadow-lg`
-                      : 'bg-gray-800/50 border-gray-600/50 hover:border-gray-500/70'
-                  }`}
+                  onClick={() => setShowFilters(false)}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-white"
                 >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={`p-2 rounded-lg ${eventType === type.value ? 'bg-white/20' : 'bg-gray-700/50'}`}>
-                      {type.icon}
-                    </div>
-                    <span className="font-bold text-white text-sm">
-                      {type.label}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-300 leading-relaxed">
-                    {type.description}
-                  </p>
-                  
-                  {eventType === type.value && (
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-pulse" />
-                  )}
+                  ✕
                 </button>
-              ))}
+
+                <h2 className="text-xl text-white font-bold mb-6 text-center">Event Filters</h2>
+
+                <motion.div
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  {eventTypes.map((type) => (
+                    <button
+                      key={type.value}
+                      onClick={() => handleEventTypeChange(type.value)}
+                      className={`group relative p-4 rounded-xl border-2 backdrop-blur-xl transition-all duration-300 hover:scale-105 ${
+                        eventType === type.value
+                          ? `bg-gradient-to-br ${getEventTypeColors(type.color)} shadow-lg`
+                          : 'bg-gray-800/50 border-gray-600/50 hover:border-gray-500/70'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`p-2 rounded-lg ${eventType === type.value ? 'bg-white/20' : 'bg-gray-700/50'}`}>
+                          {React.cloneElement(type.icon, { style: { color: getColor(type.color) } })}
+                        </div>
+                        <span 
+                          className="font-bold text-sm" 
+                          style={{ color: getColor(type.color) }}
+                        >
+                          {type.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-white leading-relaxed">
+                        {type.description}
+                      </p>
+                      
+                      {eventType === type.value && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-pulse" />
+                      )}
+                    </button>
+                  ))}
+                </motion.div>
+              </div>
             </div>
           )}
         </div>
 
-        <div className="mb-8">
-          <div className="inline-flex items-center gap-4 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 backdrop-blur-xl">
-            <Calendar className="w-5 h-5 text-indigo-400" />
-            <span className="text-white font-semibold">
-              Currently viewing: {eventTypes.find(t => t.value === eventType)?.label}
+        <div className="mb-8 flex justify-center">
+          <div className="inline-flex items-center justify-center gap-3 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 backdrop-blur-sm"><Calendar className="w-5 h-5 text-indigo-400" />
+            <span className="text-indigo-400 font-medium text-sm">
+              Currently viewing:&nbsp;
+              <span className="font-semibold ml-3 text-white gap-2">
+                {eventTypes.find(t => t.value === eventType)?.label}
+              </span>
             </span>
+            
             {events.length > 0 && (
-              <span className="px-3 py-1 rounded-full bg-white/20 text-sm font-bold text-white">
-                {events.length} events
+              <span className="ml-2 px-2.5 py-0.5 rounded-full bg-white/10 text-xs font-bold text-white border border-white/10 hover:bg-white/20 transition-colors duration-200 flex items-center justify-center min-w-[60px]">
+                <span className="relative flex h-2 w-2 mr-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+                <span className="text-center flex-1">
+                  {events.length} {events.length === 1 ? 'event' : 'events'}
+                </span>
               </span>
             )}
           </div>
         </div>
-
-        {error && (
-          <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30 backdrop-blur-xl">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-6 h-6 rounded-full bg-red-500/30 flex items-center justify-center">
-                <span className="text-red-400 font-bold text-sm">!</span>
-              </div>
-              <h3 className="text-lg font-bold text-white">Error</h3>
-            </div>
-            <p className="text-red-200">{error}</p>
-            <button
-              onClick={handleRefresh}
-              className="mt-4 px-4 py-2 rounded-lg bg-red-500/30 hover:bg-red-500/40 text-white font-semibold transition-colors duration-300"
-            >
-              Try Again
-            </button>
-          </div>
-        )}
-
         <DonkiEvents 
           events={events} 
           eventType={eventType}
           loading={loading}
           refreshing={refreshing}
         />
-
-        {!loading && !error && events.length === 0 && (
-          <div className="text-center py-16">
-            <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-gradient-to-br from-gray-500/20 to-slate-500/20 flex items-center justify-center border-2 border-gray-500/30 backdrop-blur-xl">
-              <Bell className="w-16 h-16 text-gray-400" />
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-4">No Events Found</h3>
-            <p className="text-gray-400 mb-8 max-w-md mx-auto">
-              No {eventTypes.find(t => t.value === eventType)?.label.toLowerCase()} have been detected recently. 
-              Space weather is currently calm.
-            </p>
-            <button
-              onClick={handleRefresh}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 backdrop-blur-xl text-white hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300"
-            >
-              Check Again
-            </button>
-          </div>
-        )}
-      </div>
+      </motion.div>
     </div>
   );
 }

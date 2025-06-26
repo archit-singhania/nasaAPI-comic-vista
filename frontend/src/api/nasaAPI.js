@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'https://nasaapi-comic-vista-backend.onrender.com';
+const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5050';
 
 const api = axios.create({
   baseURL: BASE_URL, 
@@ -136,7 +136,6 @@ export const fetchRandomApod = async (count = 1) => {
 
 export const fetchRovers = async (setRovers, setError) => {
   try {
-    console.log('🤖 Fetching rovers...');
     const response = await fetch(`${BASE_URL}/api/mars`);
     
     if (!response.ok) {
@@ -144,11 +143,9 @@ export const fetchRovers = async (setRovers, setError) => {
     }
     
     const data = await response.json();
-    console.log('Rovers response:', data);
     
     if (data.success && data.data && data.data.rovers) {
       setRovers(data.data.rovers);
-      console.log(`✅ Loaded ${data.data.rovers.length} rovers`);
     } else {
       throw new Error(data.error || 'Invalid rovers response');
     }
@@ -166,7 +163,6 @@ export const fetchRovers = async (setRovers, setError) => {
 
 export const fetchCameras = async (selectedRover, setCameras) => {
   try {
-    console.log(`📷 Fetching cameras for ${selectedRover}...`);
     const response = await fetch(`${BASE_URL}/api/mars/${selectedRover}/cameras`);
     
     if (!response.ok) {
@@ -174,11 +170,9 @@ export const fetchCameras = async (selectedRover, setCameras) => {
     }
     
     const data = await response.json();
-    console.log('Cameras response:', data);
     
     if (data.success && data.data) {
       setCameras(data.data.cameras || []);
-      console.log(`✅ Loaded ${data.data.cameras?.length || 0} cameras`);
     } else {
       throw new Error(data.error || 'Invalid cameras response');
     }
@@ -192,7 +186,6 @@ export const fetchPhotos = async (params, setPhotos, setLoading, setError, page)
   const { connectionStatus, selectedRover, sol, date, selectedCamera } = params;
   
   if (connectionStatus === 'disconnected') {
-    console.log('⏸️ Skipping photo fetch - API disconnected');
     return;
   }
 
@@ -200,8 +193,6 @@ export const fetchPhotos = async (params, setPhotos, setLoading, setError, page)
   setError('');
   
   try {
-    console.log(`📸 Fetching photos for ${selectedRover}...`);
-    
     const urlParams = new URLSearchParams({
       page: page.toString(),
       per_page: '24',
@@ -210,10 +201,8 @@ export const fetchPhotos = async (params, setPhotos, setLoading, setError, page)
 
     if (sol && sol.trim()) {
       urlParams.append('sol', sol.trim());
-      console.log('Using sol:', sol.trim());
     } else if (date) {
       urlParams.append('earth_date', date);
-      console.log('Using earth_date:', date);
     }
 
     if (selectedCamera && selectedCamera.trim()) {
@@ -221,7 +210,6 @@ export const fetchPhotos = async (params, setPhotos, setLoading, setError, page)
     }
 
     const url = `${BASE_URL}/api/mars/photos?${urlParams.toString()}`;
-    console.log('🔗 Fetching from URL:', url);
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); 
@@ -243,12 +231,10 @@ export const fetchPhotos = async (params, setPhotos, setLoading, setError, page)
     }
     
     const data = await response.json();
-    console.log('📊 Photos response:', data);
     
     if (data.success && data.data) {
       const newPhotos = data.data.photos || [];
       setPhotos(prev => page === 1 ? newPhotos : [...prev, ...newPhotos]);
-      console.log(`✅ Loaded ${newPhotos.length} photos (page ${page})`);
       
       if (newPhotos.length === 0 && page === 1) {
         setError('No photos found for the selected filters. Try a different date, sol, or camera.');
@@ -404,6 +390,7 @@ export const fetchDonki = async (eventType, params = {}) => {
     return await api.get(`/api/donki/${eventType}`, { params });
   } catch (error) {
     handleApiError(error);
+    throw error; 
   }
 };
 
@@ -606,7 +593,6 @@ export const fetchMediaLibrary = async (params = {}) => {
 export const fetchTechTransferPatents = async (searchQuery = '') => {
   try {
     const url = `${BASE_URL}/api/techtransfer/patents${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`;
-    console.log('🔍 Fetching patents:', url);
     
     const response = await fetch(url);
     if (!response.ok) {
@@ -624,7 +610,6 @@ export const fetchTechTransferPatents = async (searchQuery = '') => {
 export const fetchTechTransferPatentsByIssued = async (searchQuery = '') => {
   try {
     const url = `${BASE_URL}/api/techtransfer/patents/issued${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`;
-    console.log('🔍 Fetching patents by issued date:', url);
     
     const response = await fetch(url);
     if (!response.ok) {
@@ -642,7 +627,6 @@ export const fetchTechTransferPatentsByIssued = async (searchQuery = '') => {
 export const fetchTechTransferSoftware = async (searchQuery = '') => {
   try {
     const url = `${BASE_URL}/api/techtransfer/software${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`;
-    console.log('🔍 Fetching software:', url);
     
     const response = await fetch(url);
     if (!response.ok) {
@@ -660,7 +644,6 @@ export const fetchTechTransferSoftware = async (searchQuery = '') => {
 export const fetchTechTransferSpinoffs = async (searchQuery = '') => {
   try {
     const url = `${BASE_URL}/api/techtransfer/spinoffs${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`;
-    console.log('🔍 Fetching spinoffs:', url);
     
     const response = await fetch(url);
     if (!response.ok) {
@@ -678,7 +661,6 @@ export const fetchTechTransferSpinoffs = async (searchQuery = '') => {
 export const searchTechTransfer = async (searchQuery, category = 'patents') => {
   try {
     const url = `${BASE_URL}/api/techtransfer/search?search=${encodeURIComponent(searchQuery)}&category=${category}`;
-    console.log('🔍 Searching tech transfer:', url);
     
     const response = await fetch(url);
     if (!response.ok) {
@@ -717,10 +699,8 @@ const handleApiResponse = async (response) => {
 export const fetchTle = async (params = {}) => {
   try {
     const { page = 1, page_size = 50 } = params;
-    console.log('🛰️ Fetching TLE data with params:', params);
     
     const url = `${TLE_BASE_URL}?page=${page}&pageSize=${page_size}`;
-    console.log('📡 API URL:', url);
     
     const response = await fetch(url, {
       headers: {
@@ -749,10 +729,7 @@ export const fetchTle = async (params = {}) => {
 
 export const fetchTleBySearch = async (searchTerm) => {
   try {
-    console.log('🔍 Searching TLE data for:', searchTerm);
-    
     const url = `${TLE_BASE_URL}?search=${encodeURIComponent(searchTerm)}`;
-    console.log('📡 Search URL:', url);
     
     const response = await fetch(url, {
       headers: {
@@ -762,7 +739,6 @@ export const fetchTleBySearch = async (searchTerm) => {
     });
     
     const data = await handleApiResponse(response);
-    console.log('✅ Search results:', data);
     
     return Array.isArray(data) ? data : (data.member || []);
     
@@ -774,8 +750,6 @@ export const fetchTleBySearch = async (searchTerm) => {
 
 export const fetchTleByCategory = async (category) => {
   try {
-    console.log('📂 Fetching all TLE data to filter category:', category);
-
     const { data } = await fetchTle(); 
 
     const filtered = (data || []).filter(satellite => {
@@ -795,7 +769,6 @@ export const fetchTleByCategory = async (category) => {
       return keywords.some(keyword => satellite.name?.toLowerCase().includes(keyword.toLowerCase()));
     });
 
-    console.log('✅ Filtered category data:', filtered);
     return filtered;
 
   } catch (error) {
@@ -806,10 +779,7 @@ export const fetchTleByCategory = async (category) => {
 
 export const fetchTleBySatelliteId = async (satelliteId) => {
   try {
-    console.log('🛰️ Fetching satellite by ID:', satelliteId);
-    
     const url = `${TLE_BASE_URL}/${satelliteId}`;
-    console.log('📡 Satellite URL:', url);
     
     const response = await fetch(url, {
       headers: {
@@ -819,7 +789,6 @@ export const fetchTleBySatelliteId = async (satelliteId) => {
     });
     
     const data = await handleApiResponse(response);
-    console.log('✅ Satellite data fetched:', data);
     
     return data;
     
@@ -831,7 +800,6 @@ export const fetchTleBySatelliteId = async (satelliteId) => {
 
 export const fetchTleBySatelliteIds = async (satelliteIds) => {
   try {
-    console.log('🛰️ Fetching TLE data for satellite IDs:', satelliteIds);
     const idsString = Array.isArray(satelliteIds) ? satelliteIds.join(',') : satelliteIds;
     const response = await fetch(`/api/tle/satellites/${idsString}`);
     
@@ -840,7 +808,6 @@ export const fetchTleBySatelliteIds = async (satelliteIds) => {
     }
     
     const data = await response.json();
-    console.log('✅ TLE satellites data fetched successfully');
     return { data };
   } catch (error) {
     console.error('❌ TLE Satellites API Error:', error);
@@ -850,7 +817,6 @@ export const fetchTleBySatelliteIds = async (satelliteIds) => {
 
 export const fetchTleByPage = async (page, pageSize = 50) => {
   try {
-    console.log('📄 Fetching TLE data for page:', page, 'size:', pageSize);
     const response = await fetch(`/api/tle/page/${page}?page_size=${pageSize}`);
     
     if (!response.ok) {
@@ -858,7 +824,6 @@ export const fetchTleByPage = async (page, pageSize = 50) => {
     }
     
     const data = await response.json();
-    console.log('✅ TLE paginated data fetched successfully');
     return { data };
   } catch (error) {
     console.error('❌ TLE Pagination API Error:', error);
@@ -868,7 +833,6 @@ export const fetchTleByPage = async (page, pageSize = 50) => {
 
 export const fetchTleFormat = async (satelliteId) => {
   try {
-    console.log('📡 Fetching TLE format for satellite ID:', satelliteId);
     const response = await fetch(`/api/tle/format/${satelliteId}`);
     
     if (!response.ok) {
@@ -876,7 +840,6 @@ export const fetchTleFormat = async (satelliteId) => {
     }
     
     const data = await response.text(); 
-    console.log('✅ TLE format data fetched successfully');
     return { data };
   } catch (error) {
     console.error('❌ TLE Format API Error:', error);
@@ -886,7 +849,6 @@ export const fetchTleFormat = async (satelliteId) => {
 
 export const fetchTleStats = async () => {
   try {
-    console.log('📊 Fetching TLE statistics');
     const response = await fetch('/api/tle/stats');
     
     if (!response.ok) {
@@ -894,7 +856,6 @@ export const fetchTleStats = async () => {
     }
     
     const data = await response.json();
-    console.log('✅ TLE statistics fetched successfully');
     return { data };
   } catch (error) {
     console.error('❌ TLE Stats API Error:', error);
@@ -904,7 +865,6 @@ export const fetchTleStats = async () => {
 
 export const testTleApi = async () => {
   try {
-    console.log('🧪 Testing TLE API connection...');
     const response = await fetch(`${TLE_BASE_URL}/25544`, { 
       headers: {
         'Accept': 'application/json',
@@ -913,7 +873,6 @@ export const testTleApi = async () => {
     });
     
     const data = await handleApiResponse(response);
-    console.log('✅ API Test successful:', data);
     return true;
   } catch (error) {
     console.error('❌ API Test failed:', error);
