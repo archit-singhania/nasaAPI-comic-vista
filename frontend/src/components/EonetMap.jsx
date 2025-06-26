@@ -77,7 +77,7 @@ export default function EonetMap() {
       console.log('Fetching events with filters:', filters);
       
       const response = await fetch(
-        `http://localhost:5050/api/eonet/events?${queryParams}`,
+        `https://nasaapi-comic-vista-backend.onrender.com/api/eonet/events?${queryParams}`,
         {
           method: 'GET',
           headers: {
@@ -120,7 +120,7 @@ export default function EonetMap() {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5050/api/eonet/categories');
+      const response = await fetch('https://nasaapi-comic-vista-backend.onrender.com/api/eonet/categories');
       if (!response.ok) throw new Error('Failed to fetch categories');
       const data = await response.json();
       
@@ -161,7 +161,7 @@ export default function EonetMap() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:5050/api/eonet/stats?days=${filters.days}`);
+      const response = await fetch(`https://nasaapi-comic-vista-backend.onrender.com/api/eonet/stats?days=${filters.days}`);
       if (!response.ok) throw new Error('Failed to fetch stats');
       const data = await response.json();
       setStats(data);

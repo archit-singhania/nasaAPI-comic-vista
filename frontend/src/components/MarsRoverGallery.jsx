@@ -50,7 +50,7 @@ const MarsRoverGallery = () => {
   useEffect(() => {
     const checkApiStatus = async () => {
       try {
-        const res = await fetch('http://localhost:5050/api/mars/photos?rover=curiosity&earth_date=2022-01-01');
+        const res = await fetch('https://nasaapi-comic-vista-backend.onrender.com/api/mars/photos?rover=curiosity&earth_date=2022-01-01');
         if (res.ok) {
           setApiStats({ status: 'online', uptime: null });
         } else {

@@ -28,7 +28,7 @@ const WmtsVisualizer = () => {
     const fetchBodies = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('http://localhost:5050/api/wmts/bodies');
+        const response = await axios.get('https://nasaapi-comic-vista-backend.onrender.com/api/wmts/bodies');
         setBodies(response.data);
         setError(null);
       } catch (err) {
@@ -48,7 +48,7 @@ const WmtsVisualizer = () => {
 
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:5050/api/wmts/layers/${selectedBody}`);
+        const response = await axios.get(`https://nasaapi-comic-vista-backend.onrender.com/api/wmts/layers/${selectedBody}`);
         setLayers(response.data);
         setSelectedLayer(response.data[0] || '');
         setError(null);
@@ -68,7 +68,7 @@ const WmtsVisualizer = () => {
       if (!selectedBody || !selectedLayer) return;
 
       try {
-        const response = await axios.get(`http://localhost:5050/api/wmts/info/${selectedBody}/${selectedLayer}`);
+        const response = await axios.get(`https://nasaapi-comic-vista-backend.onrender.com/api/wmts/info/${selectedBody}/${selectedLayer}`);
         setLayerInfo(response.data);
         setError(null);
       } catch (err) {

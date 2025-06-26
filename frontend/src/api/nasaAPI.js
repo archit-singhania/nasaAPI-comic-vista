@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5050';
+const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'https://nasaapi-comic-vista-backend.onrender.com';
 
 const api = axios.create({
   baseURL: BASE_URL, 

@@ -104,7 +104,7 @@ const WmtsMap = ({ body, layer, format = 'jpg', events = [] }) => {
   }, [events]);
 
   const getTileUrl = (body, layer, format) =>
-    `http://localhost:5050/api/wmts/tile/${body}/${layer}/{z}/{x}/{y}?format=${format}`;
+    `https://nasaapi-comic-vista-backend.onrender.com/api/wmts/tile/${body}/${layer}/{z}/{x}/{y}?format=${format}`;
 
   return (
     <div className="w-full h-[70vh] relative">

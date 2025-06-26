@@ -34,7 +34,7 @@ export default function EarthMap() {
       console.log(`Fetching imagery for: ${lat}, ${lon}`);
       
       const response = await fetch(
-        `http://localhost:5050/api/earth/imagery?lat=${lat}&lon=${lon}&dim=0.15`,
+        `https://nasaapi-comic-vista-backend.onrender.com/api/earth/imagery?lat=${lat}&lon=${lon}&dim=0.15`,
         {
           method: 'GET',
           headers: {
@@ -130,7 +130,7 @@ export default function EarthMap() {
 
   const testBackendConnection = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5050/api/earth/health');
+      const response = await fetch('https://nasaapi-comic-vista-backend.onrender.com/api/earth/health');
       const data = await response.json();
       console.log('Backend health check:', data);
       alert('Backend connection successful!');
@@ -308,7 +308,7 @@ export default function EarthMap() {
             <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
               <strong>Debug Info:</strong> {error}
               <div className="mt-1">
-                <strong>Backend URL:</strong> http://localhost:5050/api/earth/imagery
+                <strong>Backend URL:</strong> https://nasaapi-comic-vista-backend.onrender.com/api/earth/imagery
               </div>
             </div>
           )}

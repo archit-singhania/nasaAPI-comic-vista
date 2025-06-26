@@ -1,8 +1,8 @@
 describe('Mars Rover Gallery E2E Tests', () => {
-  const API_BASE = 'http://localhost:5050/api';
+  const API_BASE = 'https://nasaapi-comic-vista-backend.onrender.com';
   
   beforeEach(() => {
-    cy.visit('http://localhost:3000'); 
+    cy.visit('https://nasa-api-comic-vista.vercel.app'); 
     
     cy.get('[data-cy="app-title"]').should('contain', 'Mars Rover Gallery');
   });
