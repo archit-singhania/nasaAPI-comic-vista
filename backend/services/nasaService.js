@@ -13,56 +13,65 @@ class NasaService {
 
   async fetchFromApi(endpoint, params = {}, options = {}) {
     let lastError;
-    
+
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
-      try {
-        const normalizedEndpoint = endpoint.startsWith('http') ? endpoint : (
-          endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-        );
+        try {
+            const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+            const fullUrl = `${this.baseURL}${normalizedEndpoint}`;
 
-        const baseUrl = options.baseURL || this.baseURL;
-        const fullUrl = normalizedEndpoint.startsWith('http') 
-          ? normalizedEndpoint 
-          : `${baseUrl}${normalizedEndpoint}`;
+            const isEonetRequest = options.baseURL && options.baseURL.includes('eonet.gsfc.nasa.gov');
+            const shouldSkipApiKey = isEonetRequest || options.skipApiKey;
 
-        const isEonetRequest = baseUrl.includes('eonet.gsfc.nasa.gov');
-        const isTechTransferRequest = fullUrl.includes('/techtransfer/');
-        
-        const shouldSkipApiKey = isEonetRequest || options.skipApiKey;
-        
-        const config = {
-          timeout: options.timeout || this.defaultTimeout,
-          headers: {
-            'User-Agent': 'NASA-API-Client/1.0',
-            'Accept': 'application/json, image/jpeg, image/png, */*',
-            ...options.headers
-          },
-          params: shouldSkipApiKey ? params : {
-            api_key: this.apiKey,
-            ...params
-          },
-          responseType: options.responseType || 'json',
-          ...options
-        };
+            const finalParams = shouldSkipApiKey ? params : { ...params, api_key: this.apiKey };
 
-        const response = await axios.get(fullUrl, config);
+            const config = {
+                timeout: options.timeout || this.defaultTimeout,
+                headers: {
+                    'User-Agent': 'NASA-API-Client/1.0',
+                    'Accept': 'application/json, image/jpeg, image/png, */*',
+                    ...options.headers
+                },
+                params: finalParams,
+                responseType: options.responseType || 'json',
+                validateStatus: (status) => status < 500 
+            };
+            
+            const response = await axios.get(fullUrl, config);
+            
+            if (response.status >= 400) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
 
-        return this.processResponse(response, endpoint);
-        
-      } catch (error) {
-        lastError = error;
-        if (error.response?.status === 401 || error.response?.status === 403 || error.response?.status === 400) {
-          console.error(`[NASA API] Non-retryable error, stopping attempts`);
-          break;
+            return this.processResponse(response, endpoint);
+
+        } catch (error) {
+            lastError = error;
+            const status = error.response?.status;
+            
+            console.error(`[NASA API] Attempt ${attempt} failed with status: ${status || 'Network Error'}`);
+            
+            if (error.response) {
+                console.error(`[NASA API] Full error details:`, {
+                    code: error.code,
+                    status: error.response.status,
+                    statusText: error.response.statusText,
+                    data: typeof error.response.data === 'string' ? error.response.data.substring(0, 200) + '...' : error.response.data,
+                    url: error.config?.url
+                });
+            }
+
+            if ([400, 401, 403, 404, 500, 501, 502, 503].includes(status)) {
+                console.error(`[NASA API] Non-retryable error (${status}), stopping attempts.`);
+                break;
+            }
+
+            if (attempt < this.maxRetries) {
+                const delay = this.retryDelay * Math.pow(1.5, attempt - 1);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
         }
-        
-        if (attempt < this.maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, this.retryDelay));
-          this.retryDelay *= 1.5; 
-        }
-      }
     }
-    
+
     throw this.handleApiError(lastError, endpoint);
   }
 
@@ -453,41 +462,62 @@ class NasaService {
 
   async getEarthImagery(params) {
     try {
-      const response = await this.fetchFromApi('/planetary/earth/imagery', params, {
-        headers: {
-          'Accept': 'application/json, image/jpeg, image/png, */*'
+        const lat = parseFloat(params.lat);
+        const lon = parseFloat(params.lon);
+        const dim = parseFloat(params.dim) || 0.15;
+
+        if (
+            isNaN(lat) || lat < -90 || lat > 90 ||
+            isNaN(lon) || lon < -180 || lon > 180 ||
+            isNaN(dim) || dim <= 0 || dim > 1
+        ) {
+            throw new Error("Invalid parameters: lat (-90 to 90), lon (-180 to 180), dim (>0 and <=1) required.");
         }
-      });
 
-      if (!response.url) {
-        const imageUrl = `${this.baseURL}/planetary/earth/imagery?lat=${params.lat}&lon=${params.lon}&dim=${params.dim}&api_key=${this.apiKey}`;
-        return {
-          url: imageUrl,
-          date: params.date || 'Latest available',
-          coordinates: { latitude: params.lat, longitude: params.lon },
-          dimension: params.dim
+        const queryParams = {
+            lat: lat,
+            lon: lon,
+            dim: dim
         };
-      }
 
-      return response;
+        if (params.date) {
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (dateRegex.test(params.date)) {
+                queryParams.date = params.date;
+            }
+        }
+
+        const response = await this.fetchFromApi('/planetary/earth/imagery', queryParams, {
+            headers: {
+                'Accept': 'application/json, image/jpeg, image/png, */*'
+            },
+            responseType: 'json' 
+        });
+
+        if (response && (response.url || response.date)) {
+            return {
+                url: response.url || `${this.baseURL}/planetary/earth/imagery?${new URLSearchParams({...queryParams, api_key: this.apiKey}).toString()}`,
+                date: response.date || params.date || 'Latest available',
+                coordinates: { latitude: lat, longitude: lon },
+                dimension: dim,
+                service: 'NASA Earth Imagery'
+            };
+        }
+
+        const directUrl = `${this.baseURL}/planetary/earth/imagery?${new URLSearchParams({...queryParams, api_key: this.apiKey}).toString()}`;
+        
+        return {
+            url: directUrl,
+            date: params.date || 'Latest available',
+            coordinates: { latitude: lat, longitude: lon },
+            dimension: dim,
+            service: 'NASA Earth Imagery (Direct)'
+        };
+
     } catch (error) {
-      if (error.message.includes('404') || error.message.includes('No satellite imagery available')) {
-        const adjustedParams = {
-          ...params,
-          lat: Math.round(params.lat * 100) / 100,
-          lon: Math.round(params.lon * 100) / 100
-        };
-
-        const imageUrl = `${this.baseURL}/planetary/earth/imagery?lat=${adjustedParams.lat}&lon=${adjustedParams.lon}&dim=${adjustedParams.dim}&api_key=${this.apiKey}`;
-        return {
-          url: imageUrl,
-          date: adjustedParams.date || 'Latest available',
-          coordinates: { latitude: adjustedParams.lat, longitude: adjustedParams.lon },
-          dimension: adjustedParams.dim,
-          note: 'Coordinates adjusted for availability'
-        };
-      }
-      throw error;
+        console.error("Error fetching NASA Earth imagery:", error.message);
+        
+        throw new Error(`NASA API is currently experiencing issues. Please try again later.`);
     }
   }
 

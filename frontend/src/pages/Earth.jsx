@@ -1,61 +1,40 @@
+import { motion } from 'framer-motion';
 import EarthMap from '../components/EarthMap';
 
 export default function Earth() {
   return (
-    <div className="earth-page">
+    <motion.div 
+      className="earth-page"
+      initial={{ opacity: 0, y: 60, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.8, ease: 'easeOut' }}
+    >
       <div className="container mx-auto px-4 py-8">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">
-            Earth Satellite Imagery
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Explore high-resolution satellite imagery of Earth from NASA's collection. 
-            Click on any location to view detailed satellite images.
-          </p>
-        </header>
+        <motion.header 
+          className="text-center mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.6 }}
+        >
+        </motion.header>
         
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="p-4 bg-gray-50 border-b">
-            <h2 className="text-xl font-semibold text-gray-700">
-              Interactive Satellite Map
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Click anywhere on the map to fetch satellite imagery for that location
-            </p>
-          </div>
-          
+        <motion.div 
+          className="bg-white rounded-lg shadow-lg overflow-hidden"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+        >
           <EarthMap />
-        </div>
+        </motion.div>
         
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-blue-50 p-6 rounded-lg">
-            <h3 className="text-lg font-semibold text-blue-800 mb-2">
-              High Resolution
-            </h3>
-            <p className="text-blue-600">
-              Access NASA's collection of high-resolution Earth imagery
-            </p>
-          </div>
-          
-          <div className="bg-green-50 p-6 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-800 mb-2">
-              Real-time Data
-            </h3>
-            <p className="text-green-600">
-              Get the latest available satellite imagery for any location
-            </p>
-          </div>
-          
-          <div className="bg-purple-50 p-6 rounded-lg">
-            <h3 className="text-lg font-semibold text-purple-800 mb-2">
-              Global Coverage
-            </h3>
-            <p className="text-purple-600">
-              Explore satellite imagery from anywhere on Earth
-            </p>
-          </div>
-        </div>
+        <motion.div 
+          className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7, duration: 0.6 }}
+        >
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -40,14 +40,10 @@ router.get('/imagery', async (req, res) => {
       }
     }
     
-    console.log('Fetching Earth imagery with params:', queryParams);
-    
     try {
       const data = await nasaService.getEarthImagery(queryParams);
       return res.json(data);
     } catch (nasaError) {
-      console.log('NASA API failed, trying fallback services...');
-      
       const fallbackServices = [
         {
           name: 'Mapbox Satellite',
@@ -90,7 +86,6 @@ router.get('/imagery', async (req, res) => {
             });
           }
         } catch (serviceError) {
-          console.log(`${service.name} failed:`, serviceError.message);
           continue;
         }
       }
@@ -154,8 +149,6 @@ router.get('/assets', async (req, res) => {
       }
     }
     
-    console.log('Fetching Earth assets with params:', queryParams);
-    
     const data = await nasaService.getEarthAssets(queryParams);
     
     res.json(data);
@@ -206,8 +199,6 @@ router.get('/dates', async (req, res) => {
       lat: latitude,
       lon: longitude
     };
-    
-    console.log('Fetching available dates with params:', queryParams);
     
     const data = await nasaService.getEarthDates(queryParams);
     
@@ -286,7 +277,6 @@ router.get('/imagery-fallback', async (req, res) => {
           });
         }
       } catch (error) {
-        console.log(`${service.name} failed:`, error.message);
         continue;
       }
     }

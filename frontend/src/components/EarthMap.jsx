@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { fetchEarthImagery } from '../api/nasaAPI'; 
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -19,7 +20,7 @@ function MapClickHandler({ onMapClick }) {
   return null;
 }
 
-export default function EarthMap() {
+function EarthMap() {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [imagery, setImagery] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -31,289 +32,664 @@ export default function EarthMap() {
     setImagery(null);
     
     try {
-      console.log(`Fetching imagery for: ${lat}, ${lon}`);
+      const data = await fetchEarthImagery({
+        lat: lat,
+        lon: lon,
+        dim: 0.15
+      });
       
-      const response = await fetch(
-        `https://nasaapi-comic-vista-backend.onrender.com/api/earth/imagery?lat=${lat}&lon=${lon}&dim=0.15`,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-      
-      if (!response.ok) {
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.details || errorData.error || errorMessage;
-        } catch (parseError) {
-        }
-        
-        if (response.status === 404) {
-          errorMessage = 'No satellite imagery available for this exact location. Try clicking on a different area.';
-        } else if (response.status === 500) {
-          errorMessage = 'NASA API is currently unavailable. Please try again later.';
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
-      const data = await response.json();
-      console.log('Response data:', data);
-      
-      if (!data.url) {
+      if (!data || !data.url) {
         throw new Error('Invalid response: missing image URL');
-      }
-
-      try {
-        const imageResponse = await fetch(data.url, { method: 'HEAD' });
-        if (!imageResponse.ok) {
-          throw new Error(`Image URL not accessible: ${imageResponse.status}`);
-        }
-      } catch (imageError) {
-        console.warn('Image URL test failed:', imageError);
       }
 
       setImagery(data);
       
     } catch (err) {
-        console.error('Error fetching satellite imagery:', err);
-        
-        let errorMessage = err.message;
-        
-        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
-          errorMessage = 'Request timed out. The server is taking too long to respond.';
-        } else if (err.message.includes('Failed to fetch')) {
-          errorMessage = 'Cannot connect to the server. Make sure your backend is running on port 5050.';
-        } else if (err.message.includes('NetworkError')) {
-          errorMessage = 'Network error. Please check your internet connection and server status.';
-        } else if (err.message.includes('CORS')) {
-          errorMessage = 'CORS error. Check if your backend allows requests from this origin.';
-        } else if (err.message.includes('NASA API is currently')) {
-          errorMessage = 'NASA servers are experiencing issues. Trying fallback imagery services...';
-        } else if (err.message.includes('404')) {
-          errorMessage = 'No satellite imagery available for this exact location. Try clicking on a different area or wait for fallback services.';
-        }
-        
-        setError(errorMessage);
-        
-        if (err.message.includes('NASA API')) {
-          setTimeout(() => {
-            if (error === errorMessage) { 
-              setError(null);
-            }
-          }, 5000);
-        }
-      } finally {
+      console.error('Error fetching satellite imagery:', err);
+      
+      let errorMessage = err.message || 'An error occurred while fetching satellite imagery';
+      
+      if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+        errorMessage = 'No satellite imagery available for this exact location. Try clicking on a different area.';
+      } else if (errorMessage.includes('500') || errorMessage.includes('Server Error')) {
+        errorMessage = 'NASA API is currently unavailable. Please try again later.';
+      } else if (errorMessage.includes('Network Error') || errorMessage.includes('Failed to fetch')) {
+        errorMessage = 'Cannot connect to the server. Make sure your backend is running.';
+      }
+      
+      setError(errorMessage);
+    } finally {
       setLoading(false);
     }
   }, []);
 
   const handleMapClick = useCallback((latlng) => {
     const { lat, lng } = latlng;
-    console.log(`Map clicked at: ${lat}, ${lng}`);
     setSelectedLocation({ lat, lng });
     fetchSatelliteImagery(lat, lng);
   }, [fetchSatelliteImagery]);
 
   const testLocation = useCallback((lat, lng, name) => {
-    console.log(`Testing ${name} at: ${lat}, ${lng}`);
     setSelectedLocation({ lat, lng });
     fetchSatelliteImagery(lat, lng);
   }, [fetchSatelliteImagery]);
 
   const testBackendConnection = useCallback(async () => {
     try {
-      const response = await fetch('https://nasaapi-comic-vista-backend.onrender.com/api/earth/health');
-      const data = await response.json();
-      console.log('Backend health check:', data);
-      alert('Backend connection successful!');
+      await fetchEarthImagery({ lat: 1.5, lon: 100.75, dim: 0.15 });
+      alert('🚀 Backend connection successful!');
     } catch (error) {
-      console.error('Backend connection failed:', error);
-      alert('Backend connection failed. Make sure your server is running on port 3001.');
+      alert('❌ Backend connection failed. Make sure your server is running.');
     }
   }, []);
 
   return (
-    <div className="earth-map-container">
-      <MapContainer 
-        center={[20, 0]} 
-        zoom={2} 
-        style={{ height: '600px', width: '100%' }}
-        className="rounded-lg"
-      >
-        <TileLayer
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
-        />
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+      padding: '20px'
+    }}>
+      <div style={{
+        textAlign: 'center',
+        marginBottom: '40px',
+        animation: 'fadeInDown 1s ease-out'
+      }}>
+        <h1 style={{
+          fontSize: '2.5rem',
+          fontWeight: '700',
+          background: 'linear-gradient(45deg, #64748b, #475569, #334155, #1e293b, #0f172a)',
+          backgroundSize: '400% 400%',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          animation: 'gradient 3s ease infinite',
+          marginBottom: '15px',
+          textShadow: '0 0 20px rgba(100,116,139,0.3)'
+        }}>
+          🌍 Earth Satellite Imagery
+        </h1>
+        <p style={{
+          fontSize: '1.1rem',
+          color: 'rgba(148,163,184,0.9)',
+          fontWeight: '300',
+          maxWidth: '600px',
+          margin: '0 auto',
+          textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+        }}>
+          Explore high-resolution satellite imagery of Earth from NASA's collection. 
+          Click on any location to view detailed satellite images.
+        </p>
+      </div>
+
+      <div style={{
+        maxWidth: '1400px',
+        margin: '0 auto',
+        background: 'rgba(30,41,59,0.95)',
+        borderRadius: '30px',
+        overflow: 'hidden',
+        boxShadow: '0 30px 60px rgba(0,0,0,0.4)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(71,85,105,0.3)'
+      }}>
         
-        <MapClickHandler onMapClick={handleMapClick} />
-        
-        {selectedLocation && (
-          <Marker position={[selectedLocation.lat, selectedLocation.lng]}>
-            <Popup maxWidth={300} minWidth={250}>
-              <div className="p-2">
-                <h3 className="font-semibold mb-2">Selected Location</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Lat: {selectedLocation.lat.toFixed(6)}<br/>
-                  Lng: {selectedLocation.lng.toFixed(6)}
-                </p>
-                
-                {loading && (
-                  <div className="flex items-center space-x-2 my-3">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                    <span className="text-sm">Loading satellite imagery...</span>
-                  </div>
-                )}
-                
-                {error && (
-                  <div className="text-red-600 text-sm bg-red-50 p-2 rounded mb-2">
-                    <strong>Error:</strong> {error}
-                    <div className="mt-1 text-xs">
-                      <button 
-                        onClick={testBackendConnection}
-                        className="text-blue-600 underline"
-                      >
-                        Test Backend Connection
-                      </button>
-                    </div>
-                  </div>
-                )}
-                
-                {imagery && !loading && !error && (
-                  <div>
-                    <img 
-                      src={imagery.url} 
-                      alt="Satellite imagery"
-                      className="w-full max-w-xs h-48 object-cover rounded mb-2"
-                      onLoad={() => console.log('Image loaded successfully')}
-                      onError={(e) => {
-                        console.error('Image failed to load:', e);
-                        console.error('Failed URL:', imagery.url);
-                        setError('Failed to load satellite image. The NASA API might be down or this location may not have available imagery.');
-                      }}
-                      crossOrigin="anonymous"
-                    />
-                    <div className="text-xs text-gray-500 space-y-1">
-                      <p><strong>Date:</strong> {imagery.date || 'Not specified'}</p>
-                      <p><strong>Dimension:</strong> {imagery.dimension || 'N/A'}</p>
-                      <a 
-                        href={imagery.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 underline block"
-                      >
-                        View Full Resolution
-                      </a>
-                    </div>
-                  </div>
-                )}
-                
-                {!loading && !error && !imagery && (
-                  <div className="text-gray-500 text-sm">
-                    Click to load satellite imagery
-                  </div>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        )}
-      </MapContainer>
-      
-      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="font-semibold text-gray-700">Instructions:</h3>
-          <button 
-            onClick={testBackendConnection}
-            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
-          >
-            Test Backend
-          </button>
+        <div style={{
+          background: 'linear-gradient(135deg, #374151, #1f2937)',
+          padding: '30px',
+          color: 'white',
+          textAlign: 'center'
+        }}>
+          <h2 style={{
+            fontSize: '1.8rem',
+            fontWeight: '600',
+            margin: '0 0 8px 0',
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+          }}>
+            🛰️ Interactive Map
+          </h2>
+          <p style={{
+            fontSize: '0.95rem',
+            opacity: '0.8',
+            margin: '0'
+          }}>
+            Click anywhere on Earth to view satellite imagery
+          </p>
         </div>
-        <ul className="text-sm text-gray-600 space-y-1">
-          <li>• Click anywhere on the map to select a location</li>
-          <li>• Satellite imagery will be fetched for the selected coordinates</li>
-          <li>• Click on the marker to view the imagery in a popup</li>
-          <li>• Use mouse wheel to zoom in/out, drag to pan</li>
-        </ul>
-        
-        <div className="mt-3 pt-3 border-t">
-          <h4 className="font-medium text-gray-700 mb-2">Test Locations:</h4>
-          <div className="flex flex-wrap gap-2">
+
+        <div style={{ 
+          position: 'relative',
+          height: '700px',
+          margin: '0',
+          background: 'linear-gradient(45deg, #1e293b, #334155)'
+        }}>
+          <MapContainer 
+            center={[20, 0]} 
+            zoom={2} 
+            style={{ 
+              height: '100%', 
+              width: '100%',
+              borderRadius: '0'
+            }}
+          >
+            <TileLayer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
+            />
+            
+            <MapClickHandler onMapClick={handleMapClick} />
+            
+            {selectedLocation && (
+              <Marker position={[selectedLocation.lat, selectedLocation.lng]}>
+                <Popup maxWidth={350} minWidth={300}>
+                  <div style={{
+                    padding: '20px',
+                    background: 'linear-gradient(135deg, #374151, #1f2937)',
+                    borderRadius: '15px',
+                    color: 'white',
+                    margin: '-10px'
+                  }}>
+                    <h3 style={{
+                      fontSize: '1.3rem',
+                      fontWeight: '600',
+                      marginBottom: '15px',
+                      textAlign: 'center'
+                    }}>
+                      📍 Selected Location
+                    </h3>
+                    
+                    <div style={{
+                      background: 'rgba(71,85,105,0.3)',
+                      padding: '15px',
+                      borderRadius: '10px',
+                      marginBottom: '15px',
+                      backdropFilter: 'blur(10px)'
+                    }}>
+                      <p style={{ margin: '0', fontSize: '0.9rem' }}>
+                        <strong>🌐 Latitude:</strong> {selectedLocation.lat.toFixed(6)}<br/>
+                        <strong>🌐 Longitude:</strong> {selectedLocation.lng.toFixed(6)}
+                      </p>
+                    </div>
+                    
+                    {loading && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px',
+                        background: 'rgba(71,85,105,0.3)',
+                        borderRadius: '10px',
+                        marginBottom: '15px'
+                      }}>
+                        <div style={{
+                          width: '30px',
+                          height: '30px',
+                          border: '3px solid rgba(148,163,184,0.3)',
+                          borderTop: '3px solid #94a3b8',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite',
+                          marginRight: '15px'
+                        }}></div>
+                        <span style={{ fontSize: '1rem', fontWeight: '600' }}>
+                          🛰️ Fetching satellite imagery...
+                        </span>
+                      </div>
+                    )}
+                    
+                    {error && (
+                      <div style={{
+                        background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+                        padding: '15px',
+                        borderRadius: '10px',
+                        marginBottom: '15px',
+                        textAlign: 'center'
+                      }}>
+                        <strong>⚠️ Error:</strong> {error}
+                        <button 
+                          onClick={testBackendConnection}
+                          style={{
+                            display: 'block',
+                            margin: '10px auto 0',
+                            padding: '8px 16px',
+                            background: 'rgba(71,85,105,0.3)',
+                            border: 'none',
+                            borderRadius: '20px',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: '600',
+                            transition: 'all 0.3s ease'
+                          }}
+                          onMouseOver={(e) => e.target.style.background = 'rgba(71,85,105,0.5)'}
+                          onMouseOut={(e) => e.target.style.background = 'rgba(71,85,105,0.3)'}
+                        >
+                          🔧 Test Connection
+                        </button>
+                      </div>
+                    )}
+                    
+                    {imagery && !loading && !error && (
+                      <div>
+                        <img 
+                          src={imagery.url} 
+                          alt="Satellite imagery"
+                          style={{
+                            width: '100%',
+                            height: '200px',
+                            objectFit: 'cover',
+                            borderRadius: '10px',
+                            marginBottom: '15px',
+                            border: '3px solid rgba(71,85,105,0.3)'
+                          }}
+                          onError={() => setError('Failed to load satellite image')}
+                          crossOrigin="anonymous"
+                        />
+                        <div style={{
+                          background: 'rgba(71,85,105,0.3)',
+                          padding: '10px',
+                          borderRadius: '8px',
+                          fontSize: '0.8rem'
+                        }}>
+                          <p style={{ margin: '5px 0' }}>
+                            <strong>📅 Date:</strong> {imagery.date || 'Not specified'}
+                          </p>
+                          <a 
+                            href={imagery.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{
+                              color: '#60a5fa',
+                              textDecoration: 'none',
+                              fontWeight: '600',
+                              display: 'inline-block',
+                              marginTop: '5px'
+                            }}
+                          >
+                            🔍 View Full Resolution
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+          </MapContainer>
+        </div>
+
+        <div style={{
+          background: 'linear-gradient(135deg, #374151, #1f2937)',
+          padding: '40px',
+          color: 'white'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '30px',
+            flexWrap: 'wrap',
+            gap: '20px'
+          }}>
+            <h3 style={{
+              fontSize: '1.5rem',
+              fontWeight: '600',
+              margin: '0'
+            }}>
+              🎮 Controls
+            </h3>
             <button 
-              onClick={() => testLocation(1.5, 100.75, 'Singapore')}
-              className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+              onClick={testBackendConnection}
+              style={{
+                padding: '10px 20px',
+                background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+                border: 'none',
+                borderRadius: '20px',
+                color: 'white',
+                fontSize: '0.95rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 6px 15px rgba(220,38,38,0.3)',
+                transition: 'all 0.3s ease',
+                transform: 'translateY(0)'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 10px 20px rgba(220,38,38,0.4)';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 6px 15px rgba(220,38,38,0.3)';
+              }}
             >
-              Test Singapore
-            </button>
-            <button 
-              onClick={() => testLocation(29.78, -95.33, 'Houston')}
-              className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors"
-            >
-              Test Houston
-            </button>
-            <button 
-              onClick={() => testLocation(40.7128, -74.0060, 'New York')}
-              className="px-3 py-1 bg-purple-500 text-white text-sm rounded hover:bg-purple-600 transition-colors"
-            >
-              Test New York
-            </button>
-            <button 
-              onClick={() => testLocation(51.5074, -0.1278, 'London')}
-              className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
-            >
-              Test London
+              🚀 Test Backend
             </button>
           </div>
-        </div>
-      </div>
-      
-      {selectedLocation && (
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-          <h3 className="font-semibold text-blue-800 mb-2">Current Selection:</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-blue-600 text-sm">
-                <strong>Latitude:</strong> {selectedLocation.lat.toFixed(6)}<br/>
-                <strong>Longitude:</strong> {selectedLocation.lng.toFixed(6)}
-              </p>
+
+          <div style={{
+            background: 'rgba(71,85,105,0.3)',
+            padding: '25px',
+            borderRadius: '20px',
+            marginBottom: '30px',
+            backdropFilter: 'blur(10px)'
+          }}>
+            <h4 style={{
+              fontSize: '1.25rem',
+              fontWeight: '700',
+              marginBottom: '12px',
+              textAlign: 'center'
+            }}>
+              📋 How to use:
+            </h4>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '15px',
+              fontSize: '1rem'
+            }}>
+              <div>🖱️ Click anywhere on the map to select a location</div>
+              <div>🛰️ Satellite imagery will be fetched automatically</div>
+              <div>📍 Click on the marker to view the imagery popup</div>
+              <div>🔍 Use mouse wheel to zoom, drag to pan around</div>
             </div>
-            {imagery && (
-              <div>
-                <p className="text-blue-600 text-sm">
-                  <strong>Image Date:</strong> {imagery.date || 'Not available'}<br/>
-                  <strong>Status:</strong> {loading ? 'Loading...' : error ? 'Error' : 'Loaded'}
+          </div>
+          
+          <div>
+            <h4 style={{
+              fontSize: '1.2rem',
+              fontWeight: '500',
+              marginBottom: '15px'
+            }}>
+              🌟 Popular locations:
+            </h4>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '15px'
+            }}>
+              <button 
+                onClick={() => testLocation(1.5, 100.75, 'Singapore')}
+                style={{
+                  padding: '15px 25px',
+                  background: 'linear-gradient(135deg, #f97316, #ea580c)',
+                  border: 'none',
+                  borderRadius: '20px',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 5px 15px rgba(71,85,105,0.3)'
+                }}
+                onMouseOver={(e) => e.target.style.transform = 'translateY(-3px)'}
+                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+              >
+                🏙️ Singapore
+              </button>
+              <button 
+                onClick={() => testLocation(53.3498, -6.2603, 'Dublin')}
+                style={{
+                  padding: '15px 25px',
+                  background: 'linear-gradient(135deg, #059669, #047857)',
+                  border: 'none',
+                  borderRadius: '20px',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 5px 15px rgba(5,150,105,0.3)'
+                }}
+                onMouseOver={(e) => e.target.style.transform = 'translateY(-3px)'}
+                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+              >
+                🍀 Dublin
+              </button>
+              <button 
+                onClick={() => testLocation(40.7128, -74.0060, 'New York')}
+                style={{
+                  padding: '15px 25px',
+                  background: 'linear-gradient(135deg, #a855f7, #9333ea)',
+                  border: 'none',
+                  borderRadius: '20px',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 5px 15px rgba(124,58,237,0.3)'
+                }}
+                onMouseOver={(e) => e.target.style.transform = 'translateY(-3px)'}
+                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+              >
+                🗽 New York
+              </button>
+              <button 
+                onClick={() => testLocation(34.0522, -118.2437, 'Los Angeles')}
+                style={{
+                  padding: '15px 25px',
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  border: 'none',
+                  borderRadius: '20px',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 5px 15px rgba(220,38,38,0.3)'
+                }}
+                onMouseOver={(e) => e.target.style.transform = 'translateY(-3px)'}
+                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+              >
+                🌴 Los Angeles
+              </button>
+              <button 
+                onClick={() => testLocation(51.5074, -0.1278, 'London')}
+                style={{
+                  padding: '15px 25px',
+                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                  border: 'none',
+                  borderRadius: '20px',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 5px 15px rgba(30,64,175,0.3)'
+                }}
+                onMouseOver={(e) => e.target.style.transform = 'translateY(-3px)'}
+                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+              >
+                🏰 London
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {selectedLocation && (
+          <div style={{
+            background: 'linear-gradient(135deg, #1e293b, #334155)',
+            padding: '30px',
+            color: 'white'
+          }}>
+            <h3 style={{
+              fontSize: '1.4rem',
+              fontWeight: '600',
+              marginBottom: '15px',
+              textAlign: 'center'
+            }}>
+              📊 Mission Status
+            </h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '20px'
+            }}>
+              <div style={{
+                background: 'rgba(71,85,105,0.3)',
+                padding: '20px',
+                borderRadius: '15px',
+                backdropFilter: 'blur(10px)'
+              }}>
+                <h4 style={{ fontSize: '1.2rem', marginBottom: '10px' }}>🎯 Target Coordinates</h4>
+                <p style={{ margin: '0', fontSize: '1rem' }}>
+                  <strong>Lat:</strong> {selectedLocation.lat.toFixed(6)}<br/>
+                  <strong>Lng:</strong> {selectedLocation.lng.toFixed(6)}
                 </p>
-                {imagery.url && (
-                  <a 
-                    href={imagery.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-700 hover:text-blue-900 text-sm underline mt-1 block"
-                  >
-                    Open Full Resolution Image
-                  </a>
-                )}
+              </div>
+              
+              {imagery && (
+                <div style={{
+                  background: 'rgba(71,85,105,0.3)',
+                  padding: '20px',
+                  borderRadius: '15px',
+                  backdropFilter: 'blur(10px)'
+                }}>
+                  <h4 style={{ fontSize: '1.2rem', marginBottom: '10px' }}>📡 Satellite Data</h4>
+                  <p style={{ margin: '0', fontSize: '1rem' }}>
+                    <strong>Date:</strong> {imagery.date || 'Not available'}<br/>
+                    <strong>Status:</strong> {loading ? '🔄 Loading...' : error ? '❌ Error' : '✅ Ready'}
+                  </p>
+                  {imagery.url && (
+                    <a 
+                      href={imagery.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{
+                        color: '#60a5fa',
+                        textDecoration: 'none',
+                        fontWeight: '600',
+                        display: 'inline-block',
+                        marginTop: '10px',
+                        padding: '8px 16px',
+                        background: 'rgba(71,85,105,0.3)',
+                        borderRadius: '20px',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      🔍 View Full Resolution
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {error && (
+              <div style={{
+                marginTop: '20px',
+                padding: '20px',
+                background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+                borderRadius: '15px',
+                textAlign: 'center'
+              }}>
+                <strong>🚨 Mission Alert:</strong> {error}
+                <div style={{ marginTop: '10px', fontSize: '0.9rem', opacity: '0.9' }}>
+                  <strong>Using API function:</strong> fetchEarthImagery
+                </div>
               </div>
             )}
           </div>
-          
-          {error && (
-            <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
-              <strong>Debug Info:</strong> {error}
-              <div className="mt-1">
-                <strong>Backend URL:</strong> https://nasaapi-comic-vista-backend.onrender.com/api/earth/imagery
-              </div>
-            </div>
-          )}
+        )}
+      </div>
+
+      <div style={{
+        maxWidth: '1400px',
+        margin: '40px auto 0',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+        gap: '30px'
+      }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #374151, #1f2937)',
+          padding: '40px',
+          borderRadius: '25px',
+          color: 'white',
+          textAlign: 'center',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+          transform: 'translateY(0)',
+          transition: 'all 0.3s ease'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
+        onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
+          <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🎯</div>
+          <h3 style={{ fontSize: '1.4rem', fontWeight: '600', marginBottom: '12px' }}>
+            High Resolution Imagery
+          </h3>
+          <p style={{ fontSize: '0.95rem', opacity: '0.8', lineHeight: '1.5' }}>
+            Access detailed satellite imagery with incredible clarity and precision
+          </p>
         </div>
-      )}
+        
+        <div style={{
+          background: 'linear-gradient(135deg, #374151, #1f2937)',
+          padding: '40px',
+          borderRadius: '25px',
+          color: 'white',
+          textAlign: 'center',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+          transform: 'translateY(0)',
+          transition: 'all 0.3s ease'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
+        onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
+          <div style={{ fontSize: '4rem', marginBottom: '20px' }}>⚡</div>
+          <h3 style={{ fontSize: '1.4rem', fontWeight: '600', marginBottom: '12px' }}>
+            Interactive Exploration
+          </h3>
+          <p style={{ fontSize: '0.95rem', opacity: '0.8', lineHeight: '1.5' }}>
+            Click anywhere on the map for instant access to satellite data
+          </p>
+        </div>
+        
+        <div style={{
+          background: 'linear-gradient(135deg, #374151, #1f2937)',
+          padding: '40px',
+          borderRadius: '25px',
+          color: 'white',
+          textAlign: 'center',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+          transform: 'translateY(0)',
+          transition: 'all 0.3s ease'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
+        onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
+          <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🌍</div>
+          <h3 style={{ fontSize: '1.4rem', fontWeight: '600', marginBottom: '12px' }}>
+            NASA Data Source
+          </h3>
+          <p style={{ fontSize: '0.95rem', opacity: '0.8', lineHeight: '1.5' }}>
+            Powered by NASA's comprehensive satellite imagery database
+          </p>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes fadeInDown {
+          from {
+            opacity: 0;
+            transform: translateY(-30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
+}
+
+export default function Earth() {
+  return <EarthMap />;
 }
