@@ -1,9 +1,14 @@
 module.exports = {
   content: [
-    "./src/**/*.{js,jsx,ts,tsx}"
+    "./src/**/*.{html,js,jsx,ts,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        roboto: ['Roboto', 'sans-serif'],
+        montserrat: ['Montserrat', 'sans-serif'],
+      },
+    },
   },
   plugins: [],
 }

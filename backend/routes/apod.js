@@ -120,7 +120,7 @@ router.get('/', async (req, res) => {
       explanation: nasaData.explanation,
       date: nasaData.date,
       url: ensureHttps(nasaData.url),
-      mediaType: 'image', 
+      mediaType: nasaData.media_type || 'image', 
       service: 'NASA APOD API',
       fetchTime: new Date().toISOString()
     };
@@ -133,6 +133,9 @@ router.get('/', async (req, res) => {
     }
     if (nasaData.service_version) {
       responseData.serviceVersion = nasaData.service_version;
+    }
+    if (nasaData.media_type === 'video' && nasaData.thumbnail_url) {
+      responseData.thumbnailUrl = ensureHttps(nasaData.thumbnail_url);
     }
 
     if (cache.size >= MAX_CACHE_SIZE) {

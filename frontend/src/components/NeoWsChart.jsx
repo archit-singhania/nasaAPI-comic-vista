@@ -99,8 +99,14 @@ export default function NeoWsChart({ onStatsUpdate }) {
         start_date: startDate,
         end_date: endDate
       });
-      
-      const feed = response.data.near_earth_objects;
+
+      console.log('NeoWs response:', response);
+
+      const feed = response?.near_earth_objects
+
+      if (!feed) {
+        throw new Error('Invalid response from NASA API: near_earth_objects not found.');
+      }
       
       const chartData = Object.keys(feed).sort().map(date => ({
         date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),

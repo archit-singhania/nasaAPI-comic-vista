@@ -22,7 +22,7 @@ const Navbar = () => {
   return (
     <nav className="bg-black border-b border-gray-800 shadow">
       <div className="max-w-screen-xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between">
-        <span className="text-xl font-bold text-white">🚀 NASA Explorer</span>
+        <span className="text-xl font-bold text-white">☄️🔭NASA Explorer🧑‍🚀🚀🛰️</span>
         <div className="flex flex-wrap gap-3 mt-2 sm:mt-0">
           {links.map(link => (
             <NavLink

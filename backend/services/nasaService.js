@@ -3,61 +3,80 @@ const NASA_API_KEY = process.env.NASA_API_KEY || 'DEMO_KEY';
 const NASA_BASE_URL = 'https://api.nasa.gov';
 
 class NasaService {
-  constructor() {
+    constructor() {
     this.apiKey = NASA_API_KEY;
     this.baseURL = NASA_BASE_URL;
-    this.defaultTimeout = 15000; 
+    this.defaultTimeout = 30000; 
+    this.maxRetries = 3;
+    this.retryDelay = 1000; 
   }
 
   async fetchFromApi(endpoint, params = {}, options = {}) {
-    try {
-      const normalizedEndpoint = endpoint.startsWith('http') ? endpoint : (
-        endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-      );
+    let lastError;
+    
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        const normalizedEndpoint = endpoint.startsWith('http') ? endpoint : (
+          endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+        );
 
-      const baseUrl = options.baseURL || this.baseURL;
-      const fullUrl = normalizedEndpoint.startsWith('http') 
-        ? normalizedEndpoint 
-        : `${baseUrl}${normalizedEndpoint}`;
+        const baseUrl = options.baseURL || this.baseURL;
+        const fullUrl = normalizedEndpoint.startsWith('http') 
+          ? normalizedEndpoint 
+          : `${baseUrl}${normalizedEndpoint}`;
 
-      console.log(`[NASA API] Fetching: ${fullUrl}`);
-      console.log(`[NASA API] Parameters:`, params);
+        const isEonetRequest = baseUrl.includes('eonet.gsfc.nasa.gov');
+        const isTechTransferRequest = fullUrl.includes('/techtransfer/');
+        
+        const shouldSkipApiKey = isEonetRequest || options.skipApiKey;
+        
+        const config = {
+          timeout: options.timeout || this.defaultTimeout,
+          headers: {
+            'User-Agent': 'NASA-API-Client/1.0',
+            'Accept': 'application/json, image/jpeg, image/png, */*',
+            ...options.headers
+          },
+          params: shouldSkipApiKey ? params : {
+            api_key: this.apiKey,
+            ...params
+          },
+          responseType: options.responseType || 'json',
+          ...options
+        };
 
-      const isEonetRequest = baseUrl.includes('eonet.gsfc.nasa.gov');
-      
-      const config = {
-        timeout: options.timeout || this.defaultTimeout,
-        headers: {
-          'User-Agent': 'NASA-API-Client/1.0',
-          'Accept': 'application/json, image/jpeg, image/png, */*',
-          ...options.headers
-        },
-        params: isEonetRequest ? params : {
-          api_key: this.apiKey,
-          ...params
-        },
-        responseType: options.responseType || 'json',
-        ...options
-      };
-
-      const response = await axios.get(fullUrl, config);
-      
-      console.log(`[NASA API] Response Status: ${response.status}`);
-      console.log(`[NASA API] Content Type: ${response.headers['content-type']}`);
-      
-      return this.processResponse(response, endpoint);
-      
-    } catch (error) {
-      console.error(`[NASA API] Error for endpoint ${endpoint}:`);
-      console.error(`[NASA API] Status: ${error.response?.status}`);
-      console.error(`[NASA API] Status Text: ${error.response?.statusText}`);
-      console.error(`[NASA API] Response Data:`, error.response?.data);
-      throw this.handleApiError(error, endpoint);
+        const response = await axios.get(fullUrl, config);
+        
+        console.log(`[NASA API] Success on attempt ${attempt}`);
+        console.log(`[NASA API] Response Status: ${response.status}`);
+        console.log(`[NASA API] Content Type: ${response.headers['content-type']}`);
+        
+        return this.processResponse(response, endpoint);
+        
+      } catch (error) {
+        lastError = error;
+        if (error.response?.status === 401 || error.response?.status === 403 || error.response?.status === 400) {
+          console.error(`[NASA API] Non-retryable error, stopping attempts`);
+          break;
+        }
+        
+        if (attempt < this.maxRetries) {
+          console.log(`[NASA API] Waiting ${this.retryDelay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+          this.retryDelay *= 1.5; 
+        }
+      }
     }
+    
+    throw this.handleApiError(lastError, endpoint);
   }
 
   processResponse(response, endpoint) {
     const contentType = response.headers['content-type'] || '';
+
+    if (response.config && response.config.responseType === 'arraybuffer') {
+      return response; 
+    }
 
     if (endpoint.includes('/earth/imagery')) {
       const imageUrl = this.buildImageUrl(response.config);
@@ -75,6 +94,9 @@ class NasaService {
     }
 
     if (contentType.includes('application/json') || typeof response.data === 'object') {
+      if (endpoint.includes('/techtransfer/')) {
+        return this.cleanTechTransferResponse(response.data);
+      }
       return response.data;
     }
 
@@ -92,6 +114,40 @@ class NasaService {
       date: response.config.params.date || 'Latest available',
       type: 'direct_url'
     };
+  }
+
+  cleanTechTransferResponse(data) {
+    if (!data) return data;
+    
+    const cleanString = (str) => {
+      if (typeof str !== 'string') return str;
+      return str
+        .replace(/<[^>]*>/g, '') 
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ')
+        .trim();
+    };
+
+    const cleanObject = (obj) => {
+      if (Array.isArray(obj)) {
+        return obj.map(cleanObject);
+      } else if (obj && typeof obj === 'object') {
+        const cleaned = {};
+        for (const [key, value] of Object.entries(obj)) {
+          cleaned[key] = cleanObject(value);
+        }
+        return cleaned;
+      } else if (typeof obj === 'string') {
+        return cleanString(obj);
+      }
+      return obj;
+    };
+
+    return cleanObject(data);
   }
 
   buildImageUrl(config) {
@@ -138,6 +194,9 @@ class NasaService {
         case 502:
         case 503:
         case 504:
+          if (endpoint.includes('/techtransfer/')) {
+            return new Error('NASA Tech Transfer API is currently experiencing issues. This is a known problem with the service. Please try again later or contact NASA support.');
+          }
           return new Error('NASA API is currently experiencing issues. Please try again later.');
         default:
           return new Error(`NASA API error (${status}): ${error.response.statusText || 'Unknown error'}`);
@@ -166,7 +225,152 @@ class NasaService {
     if (endpoint.includes('/EPIC/')) {
       return 'No EPIC images available for the specified date or parameters.';
     }
+    if (endpoint.includes('/techtransfer/')) {
+      return 'No tech transfer data found for the specified parameters.';
+    }
     return 'Requested resource not found. Please check your parameters.';
+  }
+
+  // ================================
+  // TECH TRANSFER API METHODS
+  // ================================
+
+  async getTechTransferPatents(params = {}) {
+    console.log('🔍 NasaService: Getting Tech Transfer Patents');
+    console.log('🔍 Parameters:', params);
+
+    const endpoint = '/techtransfer/patent/';
+    
+    try {
+      const response = await this.fetchFromApi(endpoint, params);
+      return response;
+    } catch (error) {
+      console.error('❌ Tech Transfer Patents Error in NasaService:', error.message);
+      console.error('❌ Full error object:', error.response?.data || error);
+      throw error;
+    }
+  }
+
+  async getTechTransferSoftware(params = {}) {
+      console.log('🔍 NasaService: Getting Tech Transfer Software');
+      console.log('🔍 Parameters:', params);
+
+      const endpoint = '/techtransfer/software/';
+      
+      try {
+        const response = await this.fetchFromApi(endpoint, params);
+        return response;
+      } catch (error) {
+        console.error('❌ Tech Transfer Software Error in NasaService:', error.message);
+        throw error;
+      }
+  }
+
+  async getTechTransferSpinoffs(params = {}) {
+      console.log('🔍 NasaService: Getting Tech Transfer Spinoffs');
+      console.log('🔍 Parameters:', params);
+
+      const endpoint = '/techtransfer/spinoff/';
+      
+      try {
+        const response = await this.fetchFromApi(endpoint, params);
+        return response;
+      } catch (error) {
+        console.error('❌ Tech Transfer Spinoffs Error in NasaService:', error.message);
+        throw error;
+      }
+  }
+
+
+  async searchTechTransfer(searchTerm, category = 'patents', params = {}) {
+    console.log('🔍 NasaService: Searching Tech Transfer');
+    console.log('🔍 Search Term:', searchTerm);
+    console.log('🔍 Category:', category);
+    console.log('🔍 Additional Parameters:', params);
+
+    if (!searchTerm) {
+      throw new Error('Search term is required for Tech Transfer search');
+    }
+
+    const validCategories = ['patents', 'software', 'spinoffs'];
+    if (!validCategories.includes(category)) {
+      throw new Error(`Invalid category. Must be one of: ${validCategories.join(', ')}`);
+    }
+
+    let endpoint;
+    let queryParams = { ...params };
+
+    switch (category) {
+      case 'patents':
+        endpoint = '/techtransfer/patent/';
+        queryParams.patent = searchTerm;
+        break;
+      case 'software':
+        endpoint = '/techtransfer/software/';
+        queryParams.software = searchTerm;
+        break;
+      case 'spinoffs':
+        endpoint = '/techtransfer/spinoff/';
+        queryParams.spinoff = searchTerm;
+        break;
+    }
+
+    try {
+      const response = await this.fetchFromApi(endpoint, queryParams);
+      return {
+        ...response,
+        searchTerm,
+        category,
+        endpoint
+      };
+    } catch (error) {
+      console.error(`❌ Tech Transfer Search Error in NasaService (${category}):`, error.message);
+      throw error;
+    }
+  }
+
+  async testTechTransferEndpoint(category, searchTerm = 'test') {
+    console.log(`🧪 NasaService: Testing Tech Transfer ${category} endpoint`);
+    
+    const validCategories = ['patent', 'software', 'spinoff'];
+    if (!validCategories.includes(category)) {
+      throw new Error(`Invalid test category. Must be one of: ${validCategories.join(', ')}`);
+    }
+
+    let endpoint = `/techtransfer/${category}`;
+    let queryParams = {};
+
+    switch (category) {
+      case 'patent':
+        queryParams.patent = searchTerm;
+        break;
+      case 'software':
+        queryParams.software = searchTerm;
+        break;
+      case 'spinoff':
+        queryParams.spinoff = searchTerm;
+        break;
+    }
+
+    try {
+      const response = await this.fetchFromApi(endpoint, queryParams);
+      return {
+        success: true,
+        test: true,
+        endpoint,
+        parameters: queryParams,
+        data: response
+      };
+    } catch (error) {
+      console.error(`❌ Tech Transfer Test Error for ${category}:`, error.message);
+      return {
+        success: false,
+        test: true,
+        endpoint,
+        parameters: queryParams,
+        error: error.message
+      };
+    }
   }
 
   // ================================
@@ -329,8 +533,88 @@ class NasaService {
     return this.fetchFromApi('/neo/rest/v1/feed', params);
   }
 
-  async getMarsRoverPhotos(rover, params) {
-    return this.fetchFromApi(`/mars-photos/api/v1/rovers/${rover}/photos`, params);
+  async getPhotos({ rover = 'curiosity', sol, earth_date, camera, page = 1, per_page = 24 }) {
+    try {
+      const params = { page, per_page };
+      
+      if (sol) params.sol = sol;
+      if (earth_date) params.earth_date = earth_date;
+      if (camera) params.camera = camera;
+      
+      const data = await this.fetchFromApi(`/mars-photos/api/v1/rovers/${rover}/photos`, params);
+      
+      const photos = data.photos || [];
+      console.log(`✅ NASA API returned ${photos.length} photos`);
+      
+      return photos;
+    } catch (error) {
+      console.error(`❌ Error fetching photos for ${rover}:`, error);
+      throw error;
+    }
+  }
+
+  async getRovers() {
+    try {
+      const data = await this.fetchFromApi('/mars-photos/api/v1/rovers');
+      
+      const rovers = data.rovers?.map(rover => ({
+        name: rover.name,
+        status: rover.status,
+        launch_date: rover.launch_date,
+        landing_date: rover.landing_date,
+        max_sol: rover.max_sol,
+        max_date: rover.max_date,
+        total_photos: rover.total_photos
+      })) || [];
+      
+      console.log(`✅ NASA API returned ${rovers.length} rovers`);
+      
+      return { rovers };
+    } catch (error) {
+      return {
+        rovers: [
+          { name: 'Curiosity', status: 'active' },
+          { name: 'Perseverance', status: 'active' },
+          { name: 'Opportunity', status: 'complete' },
+          { name: 'Spirit', status: 'complete' }
+        ]
+      };
+    }
+  }
+
+  async getCameras(rover) {
+    try {
+      console.log(`📷 Fetching cameras for ${rover}...`);
+      
+      const manifest = await this.fetchFromApi(`/mars-photos/api/v1/manifests/${rover}`);
+      const photos = manifest?.photo_manifest?.photos || [];
+      
+      const allCameras = new Set();
+      photos.forEach(sol => {
+        if (sol.cameras && Array.isArray(sol.cameras)) {
+          sol.cameras.forEach(cam => allCameras.add(cam));
+        }
+      });
+      
+      const cameras = Array.from(allCameras);
+      console.log(`📷 Found ${cameras.length} cameras for ${rover}:`, cameras);
+      
+      return cameras;
+    } catch (error) {
+      console.error(`❌ Error fetching cameras for ${rover}:`, error);
+      const defaultCameras = ['FHAZ', 'RHAZ', 'MAST', 'CHEMCAM', 'MAHLI', 'MARDI', 'NAVCAM'];
+      console.log(`📷 Using default cameras for ${rover}:`, defaultCameras);
+      return defaultCameras;
+    }
+  }
+  
+  async checkHealth() {
+    try {
+      const response = await this.fetchFromApi('/mars-photos/api/v1/rovers/curiosity/photos', { sol: 1000 });
+      return { status: 'OK', examplePhotos: response?.photos?.length || 0, uptime: process.uptime() };
+    } catch (err) {
+      return { status: 'ERROR', message: err.message, uptime: process.uptime() };
+    }
   }
 
   async getExoplanet(params = {}) {
@@ -357,6 +641,81 @@ class NasaService {
   async customEndpoint(endpoint, params = {}, options = {}) {
     return this.fetchFromApi(endpoint, params, options);
   }
+
+  async getImageLibrary(endpoint, params = {}) {
+    const baseUrl = 'https://images-api.nasa.gov';
+    return this.fetchFromApi(endpoint, params, { 
+      baseURL: baseUrl,
+      skipApiKey: true 
+    });
+  }
+
+  // ================================
+  // WMTS TILE SERVICE METHODS
+  // ================================
+
+  async fetchWmtsTile(body, layer, z, x, y, format = 'jpg') {
+    const wmtsEndpoint = this.getWmtsEndpoint(body, layer);
+    const tileUrl = `${wmtsEndpoint}/1.0.0/default/default/${z}/${y}/${x}.${format}`;
+
+    try {
+      const response = await this.fetchFromApi(tileUrl, {}, {
+        responseType: 'arraybuffer',
+        baseURL: '',
+        skipApiKey: true,
+        headers: {
+          'Accept': `image/${format}`,
+          'User-Agent': 'NASA-Trek-Client/1.0'
+        }
+      });
+
+      return response.data || response;
+    } catch (error) {
+      console.error(`Error fetching WMTS tile for ${body}/${layer}/${z}/${x}/${y}:`, error.message);
+      throw error;
+    }
+  }
+
+  getWmtsEndpoint(body, layer) {
+    const bodyLower = body.toLowerCase();
+    const endpoints = {
+      'moon': `https://trek.nasa.gov/tiles/Moon/EQ/${layer}`,
+      'mars': `https://trek.nasa.gov/tiles/Mars/EQ/${layer}`,
+      'mercury': `https://trek.nasa.gov/tiles/Mercury/EQ/${layer}`,
+      'vesta': `https://trek.nasa.gov/tiles/Vesta/EQ/${layer}`,
+      'ceres': `https://trek.nasa.gov/tiles/Ceres/EQ/${layer}`,
+      'titan': `https://trek.nasa.gov/tiles/Titan/EQ/${layer}`
+    };
+    
+    return endpoints[bodyLower] || `https://trek.nasa.gov/tiles/${body}/EQ/${layer}`;
+  }
+
+  async listWmtsBodies() {
+    return ['Moon', 'Mars', 'Vesta', 'Ceres'];
+  }
+
+  async listWmtsLayers(body) {
+    const layers = {
+      Moon: ['LRO_WAC_Mosaic_Global_303ppd', 'LOLA_Shade_Global_128ppd'],
+      Mars: ['MOLA_ColorHillshade', 'THEMIS_IR_Day'],
+      Vesta: ['FC_Mosaic'],
+      Ceres: ['FC_Mosaic']
+    };
+    return layers[body] || [];
+  }
+
+  async getWmtsLayerInfo(body, layer) {
+    return {
+      body,
+      layer,
+      projection: 'Equirectangular',
+      tileSize: 256,
+      maxZoom: 7,
+      format: 'jpg',
+      credits: 'NASA Moon/Mars Trek WMTS'
+    };
+  }
+
 
   // ================================
   // OSDR API Methods
