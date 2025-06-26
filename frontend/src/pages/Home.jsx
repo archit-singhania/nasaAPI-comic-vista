@@ -337,8 +337,18 @@ function Home() {
       className="min-h-screen relative overflow-hidden bg-black"
     >
       <div className="fixed inset-0 z-0">
-        <video autoPlay muted loop playsInline className="w-full h-full object-cover">
-          <source src="https://gofile.io/d/cmmmey" type="video/mp4" />
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="w-full h-full object-cover"
+          controls 
+        >
+          <source
+            src="https://drive.google.com/uc?export=preview&id=19lHg4H8YRuG27O4N82NNHCI9679SlCNP"
+            type="video/mp4"
+          />
           Your browser does not support the video tag.
         </video>
         <div className="absolute inset-0 bg-black/60" />
