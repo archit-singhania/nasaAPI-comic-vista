@@ -1321,8 +1321,6 @@ export default {
   fetchEonetEvents,
   fetchEonetCategories,
   fetchEonetSources,
-  fetchEonetEvent,
-  fetchEonetEventsByCategory,
   fetchEonetStats,
   checkEonetHealth,
   fetchInsight,
