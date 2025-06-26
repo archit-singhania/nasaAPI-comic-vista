@@ -16,8 +16,17 @@ class NasaService {
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
         try {
-            const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-            const fullUrl = `${this.baseURL}${normalizedEndpoint}`;
+            let fullUrl;
+            
+            if (endpoint.startsWith('http')) {
+                fullUrl = endpoint;
+            } else if (options.baseURL) {
+                const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+                fullUrl = `${options.baseURL.replace(/\/$/, '')}${normalizedEndpoint}`;
+            } else {
+                const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+                fullUrl = `${this.baseURL}${normalizedEndpoint}`;
+            }
 
             const isEonetRequest = options.baseURL && options.baseURL.includes('eonet.gsfc.nasa.gov');
             const shouldSkipApiKey = isEonetRequest || options.skipApiKey;
@@ -35,7 +44,7 @@ class NasaService {
                 responseType: options.responseType || 'json',
                 validateStatus: (status) => status < 500 
             };
-            
+
             const response = await axios.get(fullUrl, config);
             
             if (response.status >= 400) {
@@ -67,6 +76,7 @@ class NasaService {
 
             if (attempt < this.maxRetries) {
                 const delay = this.retryDelay * Math.pow(1.5, attempt - 1);
+                console.log(`[NASA API] Waiting ${delay}ms before retry...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
