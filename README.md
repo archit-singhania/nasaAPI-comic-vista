@@ -17,20 +17,22 @@
 
 ## 🗂️ Repository Structure
 
+```txt
 nasa-cosmic-vista/
-├── frontend/ # React app for NASA API visualization
-│ ├── src/ # Components, pages, API calls, styling
-│ ├── cypress/ # E2E tests for user journeys
-│ └── README.md # Frontend documentation
+├── frontend/               # React app for NASA API visualization
+│   ├── src/                # Components, pages, API calls, styling
+│   ├── cypress/            # E2E tests for user journeys
+│   └── README.md           # Frontend documentation
 │
-├── backend/ # Express.js API middleware for NASA APIs
-│ ├── routes/ # Modular NASA API route handlers
-│ ├── services/ # Axios wrappers for external APIs
-│ └── README.md # Backend documentation
+├── backend/                # Express.js API middleware for NASA APIs
+│   ├── routes/             # Modular NASA API route handlers
+│   ├── services/           # Axios wrappers for external APIs
+│   └── README.md           # Backend documentation
 │
 ├── .gitignore
-├── README.md # Root README (you’re here)
+├── README.md               # Root README (you’re here)
 └── LICENSE
+```
 
 ---
 
