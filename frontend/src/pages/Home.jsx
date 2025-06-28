@@ -477,8 +477,8 @@ function Home() {
         <div className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-r from-black/90 via-gray-900/90 to-black/90 backdrop-blur-sm border-b border-gray-800">
           <div className="flex items-center gap-4 px-6 py-3 overflow-hidden">
 
-            <div className="flex-1 overflow-hidden">
-              <div className="animate-marquee whitespace-nowrap text-gray-300 text-sm">
+            <div className="marquee-container">
+              <div className="w-max animate-marquee text-gray-300 text-sm">
                 {aiInsights.join(' • ')}
               </div>
             </div>
@@ -1078,13 +1078,21 @@ function Home() {
       </div>
 
       <style jsx>{`
-        @keyframes marquee {
+         @keyframes marquee {
           0% { transform: translateX(100%); }
           100% { transform: translateX(-100%); }
         }
-        
+
         .animate-marquee {
-          animation: marquee 30s linear infinite;
+          display: inline-block;
+          white-space: nowrap;
+          animation: marquee 25s linear infinite;
+        }
+
+        .marquee-container {
+          flex: 1;
+          overflow: hidden;
+          position: relative;
         }
         
         @keyframes spin {
