@@ -1,70 +1,157 @@
-# Getting Started with Create React App
+# 🌌 NASA ☄️🔭AetherLink🧑‍🚀🚀🛰️ — Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Welcome to the **frontend** of this project — a modern, interactive React application that visualizes data from NASA’s public APIs. This frontend delivers a seamless, visually captivating user experience across various NASA datasets including APOD, Mars Rover photos, Near-Earth Asteroids, and more.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## 🚀 Tech Stack
 
-### `npm start`
+> ⚙️ This project consists of a **React frontend** powered by **Express.js backend** (not Vite for backend).
 
-Runs the app in the development mode.\
-Open [https://nasa-api-comic-vista.vercel.app](https://nasa-api-comic-vista.vercel.app) to view it in your browser.
+* **React 18** with **Express**
+* **Tailwind CSS** for styling
+* **React Router v6** for routing
+* **Axios** for HTTP requests
+* **Framer Motion** for animations
+* **Chart.js** and **Leaflet** for data visualizations
+* **Cypress** & **Jest + React Testing Library** for testing
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## 📁 Project Structure
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```
+frontend/
+├── public/                     # Static HTML and assets
+├── src/
+│   ├── api/                   # API calls to backend (Axios instances and API handlers)
+│   │   └── nasaAPI.js
+│   ├── assets/                # Images, icons, and branding
+│   ├── components/            # All reusable visual components
+│   │   ├── common/            # Navbar, Footer, Loader, ErrorBoundary
+│   │   │   ├── Navbar.jsx
+│   │   │   ├── Footer.jsx
+│   │   │   ├── Loader.jsx
+│   │   │   └── ErrorBoundary.jsx
+│   │   ├── ApodViewer.jsx        # Astronomy Picture of the Day
+│   │   ├── MarsRoverGallery.jsx  # Mars Rover photo gallery
+│   │   ├── NeoWsChart.jsx        # Asteroid data visualization
+│   │   ├── EpicViewer.jsx        # Earth imagery
+│   │   ├── EarthMap.jsx          # Earth tiles or satellite images
+│   │   ├── DonkiEvents.jsx       # Space weather events timeline
+│   │   ├── EonetMap.jsx          # Disaster tracker map
+│   │   ├── InsightWeather.jsx    # Mars weather dashboard
+│   │   ├── ExoplanetTable.jsx    # List/filter exoplanets
+│   │   ├── ImageSearch.jsx       # NASA image and video library
+│   │   ├── TechTransferList.jsx  # Searchable tech transfer DB
+│   │   ├── TleVisualizer.jsx     # Visualizer for orbit data
+│   │   ├── WmtsMap.jsx           # Tile-based space map
+│   │   └── ...
+│   ├── pages/                 # Route-level pages
+│   │   ├── Home.jsx
+│   │   ├── Apod.jsx
+│   │   ├── MarsRover.jsx
+│   │   ├── Asteroids.jsx
+│   │   ├── Epic.jsx
+│   │   ├── Earth.jsx
+│   │   ├── Donki.jsx
+│   │   ├── Eonet.jsx
+│   │   ├── Insight.jsx
+│   │   ├── Exoplanet.jsx
+│   │   ├── MediaLibrary.jsx
+│   │   ├── TechTransfer.jsx
+│   │   ├── Tle.jsx
+│   │   ├── Wmts.jsx
+│   │   ├── NotFound.jsx
+│   │   └── ComingSoon.jsx
+│   ├── styles/                # Global + theme styles
+│   │   ├── variables.css
+│   │   └── global.css
+│   ├── App.jsx                # Router + layout wrapper -> React entry (Express serves this)
+│   ├── main.jsx              
+│   └── utils/                 # Constants, helpers
+│       ├── helpers.js
+│       └── constants.js
+├── cypress/
+│   ├── e2e/
+│   │   ├── apod.cy.js
+│   │   ├── marsRover.cy.js
+│   │   ├── asteroids.cy.js
+│   │   ├── epic.cy.js
+│   │   ├── earth.cy.js
+│   │   ├── donki.cy.js
+│   │   ├── eonet.cy.js
+│   │   ├── insight.cy.js
+│   │   ├── exoplanet.cy.js
+│   │   ├── mediaLibrary.cy.js
+│   │   ├── techTransfer.cy.js
+│   │   ├── tle.cy.js
+│   │   ├── wmts.cy.js
+│   │   └── comingSoon.cy.js
+│   ├── support/
+│   │   ├── commands.js
+│   │   └── e2e.js
+│   └── cypress.config.js
+├── .env                      # FRONTEND_API_BASE, NASA_API_KEY (optional kept here)
+├── package.json
+└── README.md
+```
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 🧐 Available Pages (Under `/src/pages`)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+| Page              | Status          | Notes                             |
+| ----------------- | --------------- | --------------------------------- |
+| Home              | ⚙️ In Progress  | Motion left-to-right to be tested |
+| APOD              | ✅ Implemented   | 📦 Testing pending                |
+| Mars Rover        | ✅ Implemented   | 📦 Testing pending                |
+| Asteroids (NeoWs) | ✅ Implemented   | 📦 Testing pending                |
+| EONET             | ✅ Implemented   | 📦 Testing pending                |
+| TLE               | ✅ Implemented   | 📦 Testing pending                |
+| DONKI             | ✅ Implemented   | 📦 Testing pending                |
+| Earth             | ✅ Implemented   | 📦 Testing pending                |
+| EPIC              | ✅ Implemented   | 🗼 UI beautification needed       |
+| Insight           | ✅ Implemented   | 🗼 UI beautification needed       |
+| OSDR              | ✅ Implemented   | 🗼 UI beautification needed       |
+| Image/Video Lib   | ⚠️ Issues exist | 🔧 Not working properly           |
+| Tech Transfer     | ⚠️ Issues exist | 🔧 Not working properly           |
+| WMTS              | ⚠️ Issues exist | 🔧 Not working properly           |
+| Exoplanet         | ⚠️ Issues exist | 🔧 Not working properly           |
+| Coming Soon       | ⏳ Planned       | TechPort, SSC, SSDCNEOS           |
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-### `npm run eject`
+**⚙️ Setup Instructions**
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+# 1️⃣ Install Dependencies
+cd frontend
+npm install
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+# 2️⃣ Run Development Server
+npm start
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+---> Frontend runs on http://localhost:3000
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+**🧪 Testing Guidelines**
+Unit & Component Tests (Jest + React Testing Library)
+```bash
+npm run test
+```
 
-## Learn More
+End-to-End Tests (Cypress)
+```bash
+# Run Cypress in interactive mode:
+npx cypress open
+# Or headless mode:
+npx cypress run
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+**🚀 Deployment**
+✅ Frontend is deployed and live:
+👉 https://nasa-api-comic-vista.vercel.app/
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## 🧑‍💻 Creator
 
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Built with precision by [Archit Singhania](https://github.com/archit-singhania)
