@@ -32,7 +32,6 @@ nasa-cosmic-vista/
 ├── README.md # Root README (you’re here)
 └── LICENSE
 
-
 ---
 
 ## 💡 Key Features
@@ -83,22 +82,22 @@ npm start
 
 ## 🧩 Recommended Deployment
 
-Frontend: Vercel or Netlify
-Backend: Render or Railway
-Secure .env files for both frontend and backend
-CORS configured to allow seamless cross-origin requests
+- Frontend: Vercel or Netlify
+- Backend: Render or Railway
+- Secure .env files for both frontend and backend
+- CORS configured to allow seamless cross-origin requests
 
 ## 🟡 Known Issues & Pending
 
-Some pages under UI refinement: EPIC, Insight, OSDR
-Features in-progress: Image Library, Tech Transfer, WMTS
-Coming Soon pages: TechPort, ssdcneos, ssc
+- Some pages under UI refinement: EPIC, Insight, OSDR
+- Features in-progress: Image Library, Tech Transfer, WMTS
+- Coming Soon pages: TechPort, ssdcneos, ssc
 
 
 ## 🔗 Live Deployment
 
-Frontend Live: https://nasa-api-comic-vista.vercel.app
-Backend Live: https://nasaapi-comic-vista-backend.onrender.com
+- > Frontend Live: https://nasa-api-comic-vista.vercel.app
+- > Backend Live: https://nasaapi-comic-vista-backend.onrender.com
 
 ## 📄 License
 
@@ -106,5 +105,5 @@ This project is open-source under the MIT License.
 
 ## 👨‍💻 Author
 
-Developed with passion for space, science, and software by Archit Singhania
-“Exploration is wired into our brains. If we can see the horizon, we want to know what’s beyond.” — Buzz Aldrin
+- Developed with passion for space, science, and software by Archit Singhania
+- “Exploration is wired into our brains. If we can see the horizon, we want to know what’s beyond.” — Buzz Aldrin
