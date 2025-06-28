@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'https://nasaapi-comic-vista-backend.onrender.coms';
+const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'https://nasaapi-comic-vista-backend.onrender.com';
 
 const api = axios.create({
   baseURL: BASE_URL, 
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -658,155 +658,257 @@ export const searchTechTransfer = async (searchQuery, category = 'patents') => {
 };
 
 // ---------------------------
-// 🧑‍🚀 NASA TLE Functions
+// 🧑‍🚀 NASA TLE API Configuration
 // ---------------------------
 
-const TLE_BASE_URL = 'https://tle.ivanstanojevic.me/api/tle';
+const TLE_CONFIG = {
+  TLE_BASE_URL: 'https://tle.ivanstanojevic.me/api/tle',
+  STATS_URL: 'https://tle.ivanstanojevic.me/api/tle/stats',
+  CELESTRAK_URL: 'https://celestrak.org/NORAD/elements/gp.php',
+  TIMEOUT: 30000,
+  GET_HEADERS: {
+    'Accept': 'application/json',
+  },
+  CELESTRAK_GROUPS: {
+    'stations': 'stations',
+    'visual': 'visual',
+    'active-geosynchronous': 'geo',
+    'weather': 'weather',
+    'noaa': 'noaa',
+    'goes': 'goes',
+    'resource': 'resource',
+    'cubesat': 'cubesat',
+    'analyst': 'analyst'
+  }
+};
+
+// ---------------------------
+// 🛠️ Core Utility Functions
+// ---------------------------
 
 const handleApiResponse = async (response) => {
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
   
-  const contentType = response.headers.get('content-type');
-  if (!contentType || !contentType.includes('application/json')) {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
     const text = await response.text();
     console.error('❌ Expected JSON but got:', text.substring(0, 200));
-    throw new Error('Server returned HTML instead of JSON. Check API endpoint.');
+    throw new Error(`Expected JSON but received: ${contentType}. API might be down.`);
   }
   
   return response.json();
 };
 
-export const fetchTle = async (params = {}) => {
+const safeFetch = async (url, options = {}) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.warn(`⚠️ Request to ${url} is being aborted after timeout of ${TLE_CONFIG.TIMEOUT}ms`);
+    controller.abort();
+  }, TLE_CONFIG.TIMEOUT);
+
   try {
-    const { page = 1, page_size = 50 } = params;
-    
-    const url = `${TLE_BASE_URL}?page=${page}&pageSize=${page_size}`;
-    
     const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'TLE-Visualizer/1.0'
-      }
+      method: 'GET',
+      headers: TLE_CONFIG.GET_HEADERS,
+      signal: controller.signal,
+      ...options
     });
-    
-    const data = await handleApiResponse(response);
-    if (Array.isArray(data)) {
-      return { data };
-    } else if (data.member) {
-      return { 
-        data: data.member,
-        totalCount: data.totalItems || data.member.length
-      };
-    }
-    
-    return { data: data ? [data] : [] };
-    
+
+    clearTimeout(timeoutId);
+    return await handleApiResponse(response);
+
   } catch (error) {
-    console.error('❌ TLE API Error:', error);
-    throw new Error(`Failed to fetch TLE data: ${error.message}`);
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error(`🛑 Timeout reached for: ${url}`);
+    }
+    console.error(`❌ Fetch error for ${url}:`, error.message);
+    throw error;
   }
 };
 
-export const fetchTleBySearch = async (searchTerm) => {
+
+const fetchFromCelesTrak = async (group = 'stations', page = 1, pageSize = 50) => {
   try {
-    const url = `${TLE_BASE_URL}?search=${encodeURIComponent(searchTerm)}`;
+    const url = `/api/tle/celestrak/${group}`;
+    const data = await safeFetch(url);
     
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'TLE-Visualizer/1.0'
-      }
+    if (!Array.isArray(data)) {
+      throw new Error(`Expected CelesTrak data to be an array, but got: ${typeof data}`);
+    }
+
+    const transformedData = data.map(sat => ({
+      satelliteId: sat.NORAD_CAT_ID,
+      name: sat.OBJECT_NAME,
+      line1: sat.TLE_LINE1,
+      line2: sat.TLE_LINE2,
+      date: sat.EPOCH,
+      meanMotion: parseFloat(sat.MEAN_MOTION),
+      inclination: parseFloat(sat.INCLINATION),
+      eccentricity: parseFloat(sat.ECCENTRICITY),
+      argOfPerigee: parseFloat(sat.ARG_OF_PERICENTER),
+      raan: parseFloat(sat.RA_OF_ASC_NODE),
+      meanAnomaly: parseFloat(sat.MEAN_ANOMALY)
+    }));
+    
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedData = transformedData.slice(startIndex, endIndex);
+    
+    return {
+      data: paginatedData,
+      totalCount: data.length,
+      currentPage: page,
+      pageSize: pageSize,
+      source: 'celestrak'
+    };
+    
+  } catch (error) {
+    console.error('❌ CelesTrak fallback failed:', error);
+    throw new Error(`CelesTrak fallback failed: ${error.message}`);
+  }
+};
+
+const matchesCategory = (satellite, category) => {
+  const name = (satellite.name || '').toLowerCase();
+  const categoryMatches = {
+    'stations': ['iss', 'tiangong', 'station'],
+    'visual': ['hubble', 'envisat', 'cosmos'],
+    'weather': ['noaa', 'goes', 'meteo'],
+    'noaa': ['noaa'],
+    'goes': ['goes'],
+    'resource': ['landsat', 'sentinel', 'terra'],
+    'cubesat': ['cubesat', 'cube', 'smallsat'],
+    'active-geosynchronous': ['goes', 'insat', 'eutelsat'],
+    'analyst': ['cosmos', 'molniya']
+  };
+  
+  const keywords = categoryMatches[category] || [];
+  return keywords.some(keyword => name.includes(keyword));
+};
+
+// ---------------------------
+// 🧑‍🚀 Main TLE API Functions
+// ---------------------------
+
+export const fetchTle = async (params = {}) => {
+  try {
+    const { page = 1, pageSize = 50, ...otherParams } = params;
+    
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      'page-size': pageSize.toString(),
+      ...otherParams
     });
     
-    const data = await handleApiResponse(response);
+    const url = `${TLE_CONFIG.TLE_BASE_URL}?${queryParams}`;
+    const data = await safeFetch(url);
+    
+    if (data.member) {
+      return {
+        data: data.member,
+        totalCount: data.totalItems || data['@total-items'] || data.member.length,
+        currentPage: page,
+        pageSize: pageSize,
+        source: 'primary'
+      };
+    } else if (Array.isArray(data)) {
+      return {
+        data: data,
+        totalCount: data.length,
+        currentPage: page,
+        pageSize: pageSize,
+        source: 'primary'
+      };
+    } else {
+      return {
+        data: [data],
+        totalCount: 1,
+        currentPage: page,
+        pageSize: pageSize,
+        source: 'primary'
+      };
+    }
+    
+  } catch (error) {
+    return await fetchFromCelesTrak('stations', params.page || 1, params.pageSize || 50);
+  }
+};
+
+export const fetchTleBySearch = async (searchTerm, params = {}) => {
+  try {
+    const queryParams = new URLSearchParams({
+      search: searchTerm,
+      ...params
+    });
+    
+    const url = `${TLE_CONFIG.TLE_BASE_URL}?${queryParams}`;
+    const data = await safeFetch(url);
     
     return Array.isArray(data) ? data : (data.member || []);
     
   } catch (error) {
-    console.error('❌ TLE Search Error:', error);
-    throw new Error(`Failed to search TLE data: ${error.message}`);
+    try {
+      const fallbackData = await fetchFromCelesTrak('stations');
+      const filtered = fallbackData.data.filter(sat => 
+        sat.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      return filtered;
+    } catch (fallbackError) {
+      throw new Error(`Search failed: ${error.message}`);
+    }
   }
 };
 
-export const fetchTleByCategory = async (category) => {
+export const fetchTleByCategory = async (category, params = {}) => {
   try {
-    const { data } = await fetchTle(); 
-
-    const filtered = (data || []).filter(satellite => {
-      const catMap = {
-        'stations': ['ISS', 'Tiangong', 'Mir'],
-        'visual': ['Hubble', 'Envisat'],
-        'active-geosynchronous': ['GOES', 'INSAT'],
-        'weather': ['NOAA', 'GOES'],
-        'noaa': ['NOAA'],
-        'goes': ['GOES'],
-        'resource': ['LANDSAT', 'Sentinel'],
-        'cubesat': ['CubeSat'],
-        'other': []
-      };
-
-      const keywords = catMap[category] || [];
-      return keywords.some(keyword => satellite.name?.toLowerCase().includes(keyword.toLowerCase()));
-    });
-
+    const { data } = await fetchTle(params);
+    
+    const filtered = (data || []).filter(satellite => matchesCategory(satellite, category));
     return filtered;
-
+    
   } catch (error) {
-    console.error('❌ TLE Category Error:', error);
-    throw new Error(`Failed to fetch category data: ${error.message}`);
+    const celestrakGroup = TLE_CONFIG.CELESTRAK_GROUPS[category] || 'stations';
+    try {
+      const fallbackData = await fetchFromCelesTrak(celestrakGroup);
+      return fallbackData.data;
+    } catch (fallbackError) {
+      throw new Error(`Category fetch failed: ${error.message}`);
+    }
   }
 };
 
 export const fetchTleBySatelliteId = async (satelliteId) => {
   try {
-    const url = `${TLE_BASE_URL}/${satelliteId}`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'TLE-Visualizer/1.0'
-      }
-    });
-    
-    const data = await handleApiResponse(response);
-    
+    const url = `${TLE_CONFIG.TLE_BASE_URL}/${satelliteId}`;
+    const data = await safeFetch(url);
     return data;
     
   } catch (error) {
-    console.error('❌ TLE Satellite Error:', error);
-    throw new Error(`Failed to fetch satellite data: ${error.message}`);
-  }
-};
-
-export const fetchTleBySatelliteIds = async (satelliteIds) => {
-  try {
-    const idsString = Array.isArray(satelliteIds) ? satelliteIds.join(',') : satelliteIds;
-    const response = await fetch(`/api/tle/satellites/${idsString}`);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    try {
+      const fallbackData = await fetchFromCelesTrak('stations');
+      const satellite = fallbackData.data.find(sat => 
+        sat.satelliteId.toString() === satelliteId.toString()
+      );
+      
+      if (satellite) {
+        return satellite;
+      } else {
+        throw new Error(`Satellite ${satelliteId} not found in fallback data`);
+      }
+    } catch (fallbackError) {
+      throw new Error(`Failed to fetch satellite ${satelliteId}: ${error.message}`);
     }
-    
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    console.error('❌ TLE Satellites API Error:', error);
-    throw new Error(`Failed to fetch satellites data: ${error.message}`);
   }
 };
 
 export const fetchTleByPage = async (page, pageSize = 50) => {
   try {
-    const response = await fetch(`/api/tle/page/${page}?page_size=${pageSize}`);
+    const result = await fetchTle({ page, pageSize });
+    return result;
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return { data };
   } catch (error) {
     console.error('❌ TLE Pagination API Error:', error);
     throw new Error(`Failed to fetch paginated satellites: ${error.message}`);
@@ -815,14 +917,15 @@ export const fetchTleByPage = async (page, pageSize = 50) => {
 
 export const fetchTleFormat = async (satelliteId) => {
   try {
-    const response = await fetch(`/api/tle/format/${satelliteId}`);
+    const satellite = await fetchTleBySatelliteId(satelliteId);
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (satellite.line1 && satellite.line2) {
+      const tleFormat = `${satellite.name}\n${satellite.line1}\n${satellite.line2}`;
+      return { data: tleFormat };
+    } else {
+      throw new Error('TLE lines not available for this satellite');
     }
     
-    const data = await response.text(); 
-    return { data };
   } catch (error) {
     console.error('❌ TLE Format API Error:', error);
     throw new Error(`Failed to fetch TLE format: ${error.message}`);
@@ -831,85 +934,132 @@ export const fetchTleFormat = async (satelliteId) => {
 
 export const fetchTleStats = async () => {
   try {
-    const response = await fetch('/api/tle/stats');
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
+    const data = await safeFetch(TLE_CONFIG.STATS_URL);
     return { data };
+    
   } catch (error) {
-    console.error('❌ TLE Stats API Error:', error);
-    throw new Error(`Failed to fetch TLE statistics: ${error.message}`);
+    try {
+      const stationsData = await fetchFromCelesTrak('stations');
+      return {
+        data: {
+          totalCount: stationsData.totalCount,
+          lastUpdated: new Date().toISOString(),
+          categories: {
+            stations: stationsData.totalCount,
+            total: stationsData.totalCount
+          },
+          source: 'celestrak-computed'
+        }
+      };
+    } catch (fallbackError) {
+      return {
+        data: {
+          totalCount: 0,
+          lastUpdated: new Date().toISOString(),
+          error: 'Stats unavailable',
+          source: 'fallback'
+        }
+      };
+    }
   }
 };
 
 export const testTleApi = async () => {
   try {
-    const response = await fetch(`${TLE_BASE_URL}/25544`, { 
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'TLE-Visualizer/1.0'
-      }
-    });
-    
-    const data = await handleApiResponse(response);
-    return true;
+    const data = await fetchTleBySatelliteId(25544);
+    return {
+      status: 'success',
+      message: 'API connection successful',
+      data: data
+    };
   } catch (error) {
-    console.error('❌ API Test failed:', error);
-    return false;
+    console.error('❌ API test failed:', error);
+    return {
+      status: 'error',
+      message: `API test failed: ${error.message}`
+    };
   }
 };
 
+// ---------------------------
+// 🧮 Utility Functions
+// ---------------------------
+
 export const parseTleData = (tleString) => {
-  try {
-    const lines = tleString.trim().split('\n');
-    if (lines.length < 3) {
-      throw new Error('Invalid TLE format - requires 3 lines');
-    }
-    
-    return {
-      name: lines[0].trim(),
-      line1: lines[1].trim(),
-      line2: lines[2].trim(),
-      parsed: {
-        satelliteNumber: parseInt(lines[1].substring(2, 7)),
-        classification: lines[1].substring(7, 8),
-        intlDesignator: lines[1].substring(9, 17).trim(),
-        epochYear: parseInt(lines[1].substring(18, 20)),
-        epochDay: parseFloat(lines[1].substring(20, 32)),
-        firstDerivative: parseFloat(lines[1].substring(33, 43)),
-        secondDerivative: parseFloat(lines[1].substring(44, 52)),
-        bstarDrag: parseFloat(lines[1].substring(53, 61)),
-        ephemerisType: parseInt(lines[1].substring(62, 63)),
-        elementNumber: parseInt(lines[1].substring(64, 68)),
-        inclination: parseFloat(lines[2].substring(8, 16)),
-        raan: parseFloat(lines[2].substring(17, 25)),
-        eccentricity: parseFloat('0.' + lines[2].substring(26, 33)),
-        argOfPerigee: parseFloat(lines[2].substring(34, 42)),
-        meanAnomaly: parseFloat(lines[2].substring(43, 51)),
-        meanMotion: parseFloat(lines[2].substring(52, 63)),
-        revolutionNumber: parseInt(lines[2].substring(63, 68))
-      }
-    };
-  } catch (error) {
-    console.error('❌ TLE Parse Error:', error);
-    throw new Error(`Failed to parse TLE data: ${error.message}`);
+  if (typeof tleString !== 'string') {
+    throw new Error(`TLE input must be a string, got: ${typeof tleString}`);
   }
+
+  const lines = tleString.trim().split('\n');
+  if (lines.length < 3) {
+    throw new Error('Invalid TLE format - requires 3 lines');
+  }
+
+  const [name, line1, line2] = lines;
+
+  if (!line1 || !line2 || line1.length < 69 || line2.length < 69) {
+    throw new Error('TLE lines are too short or malformed');
+  }
+
+  return {
+    name: name.trim(),
+    line1: line1.trim(),
+    line2: line2.trim(),
+    parsed: {
+      satelliteNumber: parseInt(line1.substring(2, 7)),
+      classification: line1.substring(7, 8),
+      intlDesignator: line1.substring(9, 17).trim(),
+      epochYear: parseInt(line1.substring(18, 20)),
+      epochDay: parseFloat(line1.substring(20, 32)),
+      firstDerivative: parseFloat(line1.substring(33, 43)),
+      secondDerivative: parseFloat(line1.substring(44, 52)),
+      bstarDrag: parseFloat(line1.substring(53, 61)),
+      ephemerisType: parseInt(line1.substring(62, 63)),
+      elementNumber: parseInt(line1.substring(64, 68)),
+      inclination: parseFloat(line2.substring(8, 16)),
+      raan: parseFloat(line2.substring(17, 25)),
+      eccentricity: parseFloat('0.' + line2.substring(26, 33)),
+      argOfPerigee: parseFloat(line2.substring(34, 42)),
+      meanAnomaly: parseFloat(line2.substring(43, 51)),
+      meanMotion: parseFloat(line2.substring(52, 63)),
+      revolutionNumber: parseInt(line2.substring(63, 68))
+    }
+  };
+};
+
+export const parseApiTleData = (apiSatellite) => {
+  const { name, line1, line2, satelliteId, date } = apiSatellite;
+  const tleString = `${name}\n${line1}\n${line2}`;
+  const parsed = parseTleData(tleString);
+  const orbitalPeriod = 1440 / parsed.parsed.meanMotion; 
+  const earthRadius = 6371; 
+  const gravitationalParameter = 398600.4418; 
+  const meanMotionRadPerSec = parsed.parsed.meanMotion * 2 * Math.PI / 86400;
+  const semiMajorAxis = Math.pow(gravitationalParameter / Math.pow(meanMotionRadPerSec, 2), 1/3);
+  const altitude = semiMajorAxis - earthRadius;
+  const fullEpochYear = parsed.parsed.epochYear < 57 ? 2000 + parsed.parsed.epochYear : 1900 + parsed.parsed.epochYear;
+  
+  return {
+    satelliteId,
+    date,
+    ...parsed.parsed,
+    epochYear: fullEpochYear,
+    orbitalPeriod,
+    altitude
+  };
 };
 
 export const calculateOrbitalPeriod = (meanMotion) => {
-  return meanMotion > 0 ? 1440 / meanMotion : 0; 
+  return meanMotion > 0 ? 1440 / meanMotion : 0;
 };
 
 export const calculateApproximateAltitude = (meanMotion) => {
   const earthRadius = 6371;
-  const mu = 398600.4418; 
+  const mu = 398600.4418;
   
   if (meanMotion <= 0) return 0;
   
-  const period = 1440 / meanMotion * 60; 
+  const period = 1440 / meanMotion * 60;
   const semiMajorAxis = Math.pow((mu * period * period) / (4 * Math.PI * Math.PI), 1/3);
   const altitude = semiMajorAxis - earthRadius;
   
@@ -1327,7 +1477,16 @@ export default {
   fetchExoplanet,
   fetchMediaLibrary,
   fetchTechTransfer,
-  fetchTle,
+  fetchTleBySearch,
+  fetchTleByCategory,
+  fetchTleBySatelliteId,
+  fetchTleByPage,
+  fetchTleFormat,
+  fetchTleStats,
+  parseTleData,
+  calculateOrbitalPeriod,
+  calculateApproximateAltitude,
+  classifySatellite,
   fetchWmtsTile,
   fetchTrendingTopics,
   fetchPopularSearch,

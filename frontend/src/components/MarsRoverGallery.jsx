@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Camera, Calendar, Car, Search, Download, Info, Star, Grid, List, Filter, RefreshCw, ExternalLink, ZoomIn, Heart, Share2, AlertCircle, Sparkles, Rocket } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Camera, Calendar, Car, Grid, List, Download, Star, Filter, RefreshCw, ExternalLink, ZoomIn, Heart, Share2, AlertCircle, Sparkles, Rocket } from 'lucide-react';
 import { fetchRovers, fetchCameras, fetchPhotos } from '../api/nasaAPI';
 
 const funFacts = [
@@ -41,8 +41,8 @@ const MarsRoverGallery = () => {
   const [favorites, setFavorites] = useState(new Set());
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [apiStats, setApiStats] = useState(null);
-  const [showFilters, setShowFilters] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState('connected');
+  const [showFilters] = useState(false);
+  const [connectionStatus] = useState('connected');
   const [downloadStatus, setDownloadStatus] = useState({});
   const [shareStatus, setShareStatus] = useState({});
   const [funFact, setFunFact] = useState('');
@@ -65,8 +65,6 @@ const MarsRoverGallery = () => {
     checkApiStatus();
   }, []);
 
-  const isApiOnline = apiStats?.status === 'online';
-
   useEffect(() => {
     const fetchRoversData = async () => {
       await fetchRovers(setRovers, setError);
@@ -83,7 +81,7 @@ const MarsRoverGallery = () => {
   useEffect(() => {
     const fetchPhotosData = async () => {
       await fetchPhotos(
-        { connectionStatus, selectedRover, sol, date, selectedCamera },
+        { selectedRover, sol, date, selectedCamera },
         setPhotos,
         setLoading,
         setError,
@@ -110,7 +108,6 @@ const MarsRoverGallery = () => {
         const favArray = Array.from(newFavorites);
         localStorage.setItem('mars-favorites', JSON.stringify(favArray));
       } catch (e) {
-        console.log('LocalStorage not available, storing in memory only');
       }
       return newFavorites;
     });
@@ -123,7 +120,6 @@ const MarsRoverGallery = () => {
         setFavorites(new Set(JSON.parse(saved)));
       }
     } catch (e) {
-      console.log('LocalStorage not available');
     }
   }, []);
 
@@ -198,47 +194,12 @@ const MarsRoverGallery = () => {
     setError('');
   };
 
-  const retryConnection = async () => {
-    setError('');
-    setConnectionStatus('checking');
-    setTimeout(() => {
-      setConnectionStatus('connected');
-    }, 1000);
-  };
-
-  const ConnectionStatus = () => (
-    <div className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-full backdrop-blur-sm border transition-all duration-300 ${
-      connectionStatus === 'connected' ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30' : 
-      connectionStatus === 'checking' ? 'text-amber-300 bg-amber-500/10 border-amber-500/30' :
-      'text-red-300 bg-red-500/10 border-red-500/30'
-    }`}>
-      <div className={`w-2 h-2 rounded-full ${
-        connectionStatus === 'connected' ? 'bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50' :
-        connectionStatus === 'checking' ? 'bg-amber-400 animate-pulse shadow-lg shadow-amber-400/50' :
-        'bg-red-400 shadow-lg shadow-red-400/50'
-      }`}></div>
-      {connectionStatus === 'connected' && 'API Online'}
-      {connectionStatus === 'checking' && 'Connecting...'}
-      {connectionStatus === 'disconnected' && (
-        <div className="flex items-center gap-2">
-          <span>API Offline</span>
-          <button 
-            onClick={retryConnection}
-            className="px-2 py-1 bg-red-500/20 hover:bg-red-500/40 rounded text-xs transition-all duration-200 hover:scale-105"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-    </div>
-  );
-
   const PhotoCard = ({ photo }) => (
     <div className="group relative bg-gradient-to-br from-slate-800/50 via-slate-900/50 to-purple-900/30 backdrop-blur-sm rounded-3xl overflow-hidden border border-slate-700/50 hover:border-cyan-400/50 transition-all duration-500 hover:transform hover:scale-[1.02] hover:shadow-2xl hover:shadow-cyan-500/20">
       <div className="relative overflow-hidden">
         <img
           src={photo.img_src}
-          alt={`Mars photo by ${photo.rover.name}`}
+          alt={`Taken by ${photo.rover.name}`}
           className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
           loading="lazy"
           onError={(e) => {
@@ -309,7 +270,7 @@ const MarsRoverGallery = () => {
       
       <div className="p-4 bg-gradient-to-r from-slate-800/30 to-purple-800/30">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-cyan-400 text-sm font-bold bg-cyan-400/10 px-2 py-1 rounded-full border border-cyan-400/30">
+          <span className="text-white text-sm font-bold bg-cyan-400/10 px-2 py-1 rounded-full border border-cyan-400/30">
             {photo.rover?.name || selectedRover} Rover
           </span>
           <span className="text-gray-300 text-xs bg-gray-700/50 px-2 py-1 rounded-full">
@@ -335,7 +296,7 @@ const MarsRoverGallery = () => {
           <div className="flex-1 relative bg-black/30">
             <img
               src={photo.img_src}
-              alt={`Mars photo by ${photo.rover?.name || 'rover'}`}
+              alt={`Taken by ${photo.rover?.name || 'rover'}`}
               className="w-full h-full object-contain max-h-[60vh] lg:max-h-[95vh]"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-purple-500/5 to-pink-500/5 animate-pulse"></div>
@@ -482,17 +443,6 @@ const MarsRoverGallery = () => {
             </h2>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-lg shadow-blue-500/30 active:scale-95 group"
-              >
-                <span className="flex items-center gap-2">
-                  <div className={`transition-transform duration-300 ${showFilters ? 'rotate-180' : ''}`}>
-                    <Filter size={16} />
-                  </div>
-                  {showFilters ? 'Hide' : 'Show'} Filters
-                </span>
-              </button>
-              <button
                 onClick={resetFilters}
                 className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-purple-600 hover:to-pink-600 text-white rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-lg active:scale-95 group"
               >
@@ -616,67 +566,43 @@ const MarsRoverGallery = () => {
                   disabled={loading}
                   min="0"
                 />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-yellow-400/50">
-                  🪐
-                </div>
               </div>
-            </div>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-gray-700/30">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles size={16} className="text-cyan-400" />
-              <span className="text-gray-300 text-sm font-medium">Quick Filters:</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { label: 'Latest Photos', action: () => { setDate(''); setSol(''); setPage(1); } },
-                { label: 'Curiosity Only', action: () => { setSelectedRover('curiosity'); setPage(1); } },
-                { label: 'Perseverance Only', action: () => { setSelectedRover('perseverance'); setPage(1); } },
-                { label: 'Clear All', action: resetFilters }
-              ].map((filter, index) => (
-                <button
-                  key={index}
-                  onClick={filter.action}
-                  className="px-4 py-2 bg-gradient-to-r from-gray-700/30 to-gray-800/30 hover:from-purple-600/30 hover:to-cyan-600/30 text-gray-300 hover:text-white text-sm rounded-xl transition-all duration-300 border border-gray-600/30 hover:border-purple-500/50 backdrop-blur-sm transform hover:scale-105 active:scale-95"
-                >
-                  {filter.label}
-                </button>
-              ))}
             </div>
           </div>
         </div>
 
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-r from-gray-800/30 to-gray-900/30 p-2 rounded-2xl backdrop-blur-sm border border-gray-700/50">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`flex items-center gap-3 px-6 py-3 rounded-xl transition-all duration-300 transform hover:scale-105 ${
-                  viewMode === 'grid' 
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/30' 
-                    : 'text-gray-300 hover:text-white hover:bg-gradient-to-r hover:from-blue-600/20 hover:to-cyan-600/20'
-                }`}
-              >
-                <Grid size={18} className={viewMode === 'grid' ? 'animate-pulse' : ''} />
-                <span className="font-medium">Grid</span>
-              </button>
-            </div>
-            <div className="bg-gradient-to-r from-gray-800/30 to-gray-900/30 p-2 rounded-2xl backdrop-blur-sm border border-gray-700/50">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`flex items-center gap-3 px-6 py-3 rounded-xl transition-all duration-300 transform hover:scale-105 ${
-                  viewMode === 'list' 
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' 
-                    : 'text-gray-300 hover:text-white hover:bg-gradient-to-r hover:from-purple-600/20 hover:to-pink-600/20'
-                }`}
-              >
-                <List size={18} className={viewMode === 'list' ? 'animate-pulse' : ''} />
-                <span className="font-medium">List</span>
-              </button>
-            </div>
+          <div className="bg-gradient-to-r from-gray-800/30 to-gray-900/30 p-2 rounded-2xl backdrop-blur-sm border border-gray-700/50 flex gap-4">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                setViewMode('grid');
+              }}
+              className={`flex items-center gap-3 px-6 py-3 rounded-xl transition-all duration-300 transform hover:scale-105 ${
+                viewMode === 'grid'
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/30'
+                  : 'text-gray-300 hover:text-white hover:bg-gradient-to-r hover:from-blue-600/20 hover:to-cyan-600/20'
+              }`}
+            >
+              <List size={18} className={viewMode === 'list' ? 'animate-pulse' : ''} />
+              <span className="font-medium">LIST Mode</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                setViewMode('list');
+              }}
+              className={`flex items-center gap-3 px-6 py-3 rounded-xl transition-all duration-300 transform hover:scale-105 ${
+                viewMode === 'list'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                  : 'text-gray-300 hover:text-white hover:bg-gradient-to-r hover:from-purple-600/20 hover:to-pink-600/20'
+              }`}
+            >
+              <Grid size={18} className={viewMode === 'grid' ? 'animate-pulse' : ''} />
+              <span className="font-medium">Grid Mode</span>
+            </button>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <div className="text-gray-300 bg-gradient-to-r from-gray-800/30 to-gray-900/30 px-6 py-3 rounded-2xl backdrop-blur-sm border border-gray-700/50 hover:border-cyan-500/30 transition-all duration-300 group">
               {photos.length > 0 && (
@@ -742,16 +668,23 @@ const MarsRoverGallery = () => {
 
         {!loading && photos.length > 0 && (
           <div className={viewMode === 'grid' 
-            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 animate-in fade-in duration-700' 
-            : 'space-y-6 animate-in fade-in duration-700'
+            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full animate-in fade-in duration-700' 
+            : 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-4 w-full max-w-[1800px] mx-auto animate-in fade-in duration-700'
           }>
             {photos.map((photo, index) => (
               <div 
                 key={photo.id} 
-                className="animate-in slide-in-from-bottom duration-700 hover:scale-105 transition-transform duration-300"
+                className={`animate-in slide-in-from-bottom duration-700 transition-transform duration-300 ${
+                  viewMode === 'grid' ? 'hover:scale-105' : 'hover:scale-[1.02]'
+                }`}
                 style={{ animationDelay: `${index * 50}ms` }}
               >
+              <div className={viewMode === 'grid' 
+                  ? 'w-[calc(100%/8-1rem)] min-w-[150px]' 
+                  : 'w-full max-w-2xl mx-auto px-4 overflow-hidden'
+                }>
                 <PhotoCard photo={photo} />
+              </div>
               </div>
             ))}
           </div>

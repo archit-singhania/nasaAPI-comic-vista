@@ -106,7 +106,7 @@ function EarthMap() {
           marginBottom: '15px',
           textShadow: '0 0 20px rgba(100,116,139,0.3)'
         }}>
-          🌍 Earth Satellite Imagery
+          🌍 Earth's Satellite Imagery
         </h1>
         <p style={{
           fontSize: '1.1rem',

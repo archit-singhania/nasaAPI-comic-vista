@@ -2,13 +2,38 @@ const axios = require('axios');
 const NASA_API_KEY = process.env.NASA_API_KEY || 'DEMO_KEY';
 const NASA_BASE_URL = 'https://api.nasa.gov';
 
+const TLE_CONFIG = {
+  BASE_URL: 'https://tle.ivanstanojevic.me/api/tle',
+  STATS_URL: 'https://tle.ivanstanojevic.me/api/tle/stats',
+  CELESTRAK_URL: 'https://celestrak.org/NORAD/elements/gp.php',
+  DEFAULT_TIMEOUT: 30000,
+  MAX_RETRIES: 3,
+  RETRY_DELAY: 1000,
+  GET_HEADERS: {
+    'Accept': 'application/json',
+  },
+  CELESTRAK_GROUPS: {
+    'stations': 'stations',
+    'visual': 'visual',
+    'active-geosynchronous': 'geo',
+    'weather': 'weather',
+    'noaa': 'noaa',
+    'goes': 'goes',
+    'resource': 'resource',
+    'cubesat': 'cubesat',
+    'analyst': 'analyst'
+  }
+};
+
 class NasaService {
     constructor() {
     this.apiKey = NASA_API_KEY;
     this.baseURL = NASA_BASE_URL;
-    this.defaultTimeout = 30000; 
-    this.maxRetries = 3;
-    this.retryDelay = 1000; 
+    this.defaultTimeout = TLE_CONFIG.DEFAULT_TIMEOUT;
+    this.maxRetries = TLE_CONFIG.MAX_RETRIES;
+    this.retryDelay = TLE_CONFIG.RETRY_DELAY;
+    this.TLE_BASE_URL = TLE_CONFIG.BASE_URL;
+    this.headers = TLE_CONFIG.GET_HEADERS;
   }
 
   async fetchFromApi(endpoint, params = {}, options = {}) {
@@ -76,14 +101,13 @@ class NasaService {
 
             if (attempt < this.maxRetries) {
                 const delay = this.retryDelay * Math.pow(1.5, attempt - 1);
-                console.log(`[NASA API] Waiting ${delay}ms before retry...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
     }
 
     throw this.handleApiError(lastError, endpoint);
-  }
+}
 
   processResponse(response, endpoint) {
     const contentType = response.headers['content-type'] || '';
@@ -501,7 +525,7 @@ class NasaService {
             headers: {
                 'Accept': 'application/json, image/jpeg, image/png, */*'
             },
-            responseType: 'json' 
+            responseType: 'json'
         });
 
         if (response && (response.url || response.date)) {
@@ -711,6 +735,449 @@ class NasaService {
       baseURL: baseUrl,
       skipApiKey: true 
     });
+  }
+
+async retryRequest(requestFn, maxRetries = this.maxRetries) {
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await requestFn();
+      } catch (error) {
+        lastError = error;
+        
+        if (attempt === maxRetries) break;
+        
+        const delay = this.retryDelay * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw lastError;
+  }
+
+  async fetchFromCelesTrak(group = 'stations', page = 1, pageSize = 50) {
+    try {
+      const url = `${TLE_CONFIG.CELESTRAK_URL}?GROUP=${group}&FORMAT=json`;
+      
+      const response = await axios.get(url, {
+        headers: this.headers,
+        timeout: this.defaultTimeout
+      });
+      
+      const transformedData = response.data.map(sat => ({
+        satelliteId: sat.NORAD_CAT_ID,
+        name: sat.OBJECT_NAME,
+        line1: sat.TLE_LINE1,
+        line2: sat.TLE_LINE2,
+        date: sat.EPOCH,
+        meanMotion: parseFloat(sat.MEAN_MOTION),
+        inclination: parseFloat(sat.INCLINATION),
+        eccentricity: parseFloat(sat.ECCENTRICITY),
+        argOfPerigee: parseFloat(sat.ARG_OF_PERICENTER),
+        raan: parseFloat(sat.RA_OF_ASC_NODE),
+        meanAnomaly: parseFloat(sat.MEAN_ANOMALY)
+      }));
+      
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedData = transformedData.slice(startIndex, endIndex);
+      
+      return {
+        data: paginatedData,
+        totalCount: response.data.length,
+        currentPage: page,
+        pageSize: pageSize,
+        source: 'celestrak'
+      };
+      
+    } catch (error) {
+      console.error('❌ CelesTrak fallback failed:', error);
+      throw new Error(`CelesTrak fallback failed: ${error.message}`);
+    }
+  }
+
+  matchesCategory(satellite, category) {
+    const name = (satellite.name || '').toLowerCase();
+    const categoryMatches = {
+      'stations': ['iss', 'tiangong', 'station'],
+      'visual': ['hubble', 'envisat', 'cosmos'],
+      'weather': ['noaa', 'goes', 'meteo'],
+      'noaa': ['noaa'],
+      'goes': ['goes'],
+      'resource': ['landsat', 'sentinel', 'terra'],
+      'cubesat': ['cubesat', 'cube', 'smallsat'],
+      'active-geosynchronous': ['goes', 'insat', 'eutelsat'],
+      'analyst': ['cosmos', 'molniya']
+    };
+    
+    const keywords = categoryMatches[category] || [];
+    return keywords.some(keyword => name.includes(keyword));
+  }
+
+  // ---------------------------
+  // 🧑‍🚀 TLE Service Methods
+  // ---------------------------
+
+  async getTleData(params = {}) {
+    try {
+      const { page = 1, pageSize = 50, ...otherParams } = params;
+      
+      const requestParams = {
+        page,
+        'page-size': pageSize,
+        ...otherParams
+      };
+  
+      const data = response.data;
+      
+      if (data.member) {
+        return {
+          data: data.member,
+          totalCount: data.totalItems || data['@total-items'] || data.member.length,
+          currentPage: page,
+          pageSize: pageSize,
+          source: 'primary'
+        };
+      } else if (Array.isArray(data)) {
+        return {
+          data: data,
+          totalCount: data.length,
+          currentPage: page,
+          pageSize: pageSize,
+          source: 'primary'
+        };
+      } else {
+        return {
+          data: [data],
+          totalCount: 1,
+          currentPage: page,
+          pageSize: pageSize,
+          source: 'primary'
+        };
+      }
+      
+    } catch (error) {
+      return await this.fetchFromCelesTrak('stations', params.page || 1, params.pageSize || 50);
+    }
+  }
+
+  async getTleBySatelliteId(satelliteId, params = {}) {
+    try {
+      const url = `${this.TLE_BASE_URL}/${satelliteId}`;
+      
+      const response = await this.retryRequest(() => 
+        axios.get(url, {
+          params,
+          headers: this.headers,
+          timeout: this.defaultTimeout
+        })
+      );
+      
+      return response.data;
+      
+    } catch (error) {
+      try {
+        const fallbackData = await this.fetchFromCelesTrak('stations');
+        const satellite = fallbackData.data.find(sat => 
+          sat.satelliteId.toString() === satelliteId.toString()
+        );
+        
+        if (satellite) {
+          return satellite;
+        } else {
+          throw new Error(`Satellite ${satelliteId} not found in fallback data`);
+        }
+      } catch (fallbackError) {
+        throw this.handleApiError(error, `/tle/${satelliteId}`);
+      }
+    }
+  }
+
+  async searchTleByName(searchTerm, params = {}) {
+    try {
+      const searchParams = {
+        search: searchTerm,
+        ...params
+      };
+      
+      const response = await this.retryRequest(() => 
+        axios.get(this.TLE_BASE_URL, {
+          params: searchParams,
+          headers: this.headers,
+          timeout: this.defaultTimeout
+        })
+      );
+      
+      const data = response.data;
+      return Array.isArray(data) ? data : (data.member || []);
+      
+    } catch (error) {
+      try {
+        const fallbackData = await this.fetchFromCelesTrak('stations');
+        const filtered = fallbackData.data.filter(sat => 
+          sat.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        return filtered;
+      } catch (fallbackError) {
+        throw this.handleApiError(error, `/tle?search=${searchTerm}`);
+      }
+    }
+  }
+
+  async getTleByCategory(category, params = {}) {
+    try {
+      const result = await this.getTleData(params);
+      const filtered = (result.data || []).filter(satellite => this.matchesCategory(satellite, category));
+      
+      return {
+        ...result,
+        data: filtered,
+        totalCount: filtered.length
+      };
+      
+    } catch (error) {
+      const celestrakGroup = TLE_CONFIG.CELESTRAK_GROUPS[category] || 'stations';
+      try {
+        const fallbackData = await this.fetchFromCelesTrak(celestrakGroup);
+        return fallbackData;
+      } catch (fallbackError) {
+        throw this.handleApiError(error, `/tle?category=${category}`);
+      }
+    }
+  }
+
+  async getTleBySatelliteIds(satelliteIds, params = {}) {
+    try {
+      this.validateSatelliteIds(satelliteIds);
+      
+      const idsString = Array.isArray(satelliteIds) ? satelliteIds.join(',') : satelliteIds;
+      const url = `${this.TLE_BASE_URL}/${idsString}`;
+      
+      const response = await this.retryRequest(() => 
+        axios.get(url, {
+          params,
+          headers: this.headers,
+          timeout: this.defaultTimeout
+        })
+      );
+      
+      return Array.isArray(response.data) ? response.data : [response.data];
+      
+    } catch (error) {
+      console.error('Error fetching multiple satellites:', error);
+      throw this.handleApiError(error, `/tle/${satelliteIds}`);
+    }
+  }
+
+  async getTleByPage(page, pageSize = 50, params = {}) {
+    try {
+      const validatedParams = this.validatePageParams(page, pageSize);
+      
+      return await this.getTleData({
+        page: validatedParams.page,
+        pageSize: validatedParams.pageSize,
+        ...params
+      });
+      
+    } catch (error) {
+      console.error(`Error fetching page ${page}:`, error);
+      throw this.handleApiError(error, `/tle?page=${page}`);
+    }
+  }
+
+  async getTleFormat(satelliteId, params = {}) {
+    try {
+      const satellite = await this.getTleBySatelliteId(satelliteId, params);
+      
+      if (satellite.line1 && satellite.line2) {
+        const tleFormat = `${satellite.name}\n${satellite.line1}\n${satellite.line2}`;
+        return tleFormat;
+      } else {
+        throw new Error('TLE lines not available for this satellite');
+      }
+      
+    } catch (error) {
+      console.error(`Error fetching TLE format for ${satelliteId}:`, error);
+      throw this.handleApiError(error, `/tle/${satelliteId}?format=text`);
+    }
+  }
+
+  async getTleStats(params = {}) {
+    try {
+      const response = await this.retryRequest(() => 
+        axios.get(TLE_CONFIG.STATS_URL, {
+          params,
+          headers: this.headers,
+          timeout: this.defaultTimeout
+        })
+      );
+      
+      return response.data;
+      
+    } catch (error) {
+      try {
+        const stationsData = await this.fetchFromCelesTrak('stations');
+        return {
+          totalCount: stationsData.totalCount,
+          lastUpdated: new Date().toISOString(),
+          categories: {
+            stations: stationsData.totalCount,
+            total: stationsData.totalCount
+          },
+          source: 'celestrak-computed'
+        };
+      } catch (fallbackError) {
+        return {
+          totalCount: 0,
+          lastUpdated: new Date().toISOString(),
+          error: 'Stats unavailable',
+          source: 'fallback'
+        };
+      }
+    }
+  }
+
+  async testTleApi() {
+    try {
+      const response = await this.retryRequest(() => 
+        axios.get(`${this.TLE_BASE_URL}/25544`, {
+          headers: this.headers,
+          timeout: this.defaultTimeout
+        })
+      );
+      
+      return { 
+        status: 'success', 
+        message: 'TLE API connection successful',
+        data: response.data
+      };
+    } catch (error) {
+      console.error('🚨 TLE API test failed:', error);
+      return { 
+        status: 'error', 
+        message: `TLE API test failed: ${error.message}` 
+      };
+    }
+  }
+
+  // ---------------------------
+  // 🔍 Validation Methods
+  // ---------------------------
+
+  validateCategory(category) {
+    const validCategories = [
+      'stations', 'visual', 'active-geosynchronous', 'analyst', 'weather', 
+      'noaa', 'goes', 'resource', 'cubesat', 'other'
+    ];
+    
+    return validCategories.includes(category.toLowerCase());
+  }
+
+  validateSatelliteId(id) {
+    return !isNaN(id) && parseInt(id) > 0;
+  }
+
+  validateSatelliteIds(ids) {
+    const idArray = Array.isArray(ids) ? ids : ids.split(',').map(id => id.trim());
+    const invalidIds = idArray.filter(id => isNaN(id) || id === '');
+    
+    if (invalidIds.length > 0) {
+      throw new Error(`Invalid satellite IDs: ${invalidIds.join(', ')}`);
+    }
+    
+    if (idArray.length > 100) {
+      throw new Error('Too many satellite IDs. Maximum 100 satellites per request.');
+    }
+    
+    return idArray;
+  }
+
+  validatePageParams(page, pageSize) {
+    if (isNaN(page) || parseInt(page) < 1) {
+      throw new Error('Invalid page number. Must be a positive integer.');
+    }
+    
+    if (pageSize && (isNaN(pageSize) || parseInt(pageSize) < 1 || parseInt(pageSize) > 1000)) {
+      throw new Error('Invalid page_size. Must be between 1 and 1000.');
+    }
+    
+    return {
+      page: parseInt(page),
+      pageSize: pageSize ? parseInt(pageSize) : 50
+    };
+  }
+
+  // ---------------------------
+  // 🛰️ TLE Utility Methods
+  // ---------------------------
+
+  parseTleData(tleString) {
+    try {
+      const lines = tleString.trim().split('\n');
+      if (lines.length < 3) {
+        throw new Error('Invalid TLE format - requires 3 lines');
+      }
+      
+      return {
+        name: lines[0].trim(),
+        line1: lines[1].trim(),
+        line2: lines[2].trim(),
+        parsed: {
+          satelliteNumber: parseInt(lines[1].substring(2, 7)),
+          classification: lines[1].substring(7, 8),
+          intlDesignator: lines[1].substring(9, 17).trim(),
+          epochYear: parseInt(lines[1].substring(18, 20)),
+          epochDay: parseFloat(lines[1].substring(20, 32)),
+          firstDerivative: parseFloat(lines[1].substring(33, 43)),
+          secondDerivative: parseFloat(lines[1].substring(44, 52)),
+          bstarDrag: parseFloat(lines[1].substring(53, 61)),
+          ephemerisType: parseInt(lines[1].substring(62, 63)),
+          elementNumber: parseInt(lines[1].substring(64, 68)),
+          inclination: parseFloat(lines[2].substring(8, 16)),
+          raan: parseFloat(lines[2].substring(17, 25)),
+          eccentricity: parseFloat('0.' + lines[2].substring(26, 33)),
+          argOfPerigee: parseFloat(lines[2].substring(34, 42)),
+          meanAnomaly: parseFloat(lines[2].substring(43, 51)),
+          meanMotion: parseFloat(lines[2].substring(52, 63)),
+          revolutionNumber: parseInt(lines[2].substring(63, 68))
+        }
+      };
+    } catch (error) {
+      console.error('❌ TLE Parse Error:', error);
+      throw new Error(`Failed to parse TLE data: ${error.message}`);
+    }
+  }
+
+  calculateOrbitalPeriod(meanMotion) {
+    return meanMotion > 0 ? 1440 / meanMotion : 0;
+  }
+
+  calculateApproximateAltitude(meanMotion) {
+    const earthRadius = 6371;
+    const mu = 398600.4418;
+    
+    if (meanMotion <= 0) return 0;
+    
+    const period = 1440 / meanMotion * 60;
+    const semiMajorAxis = Math.pow((mu * period * period) / (4 * Math.PI * Math.PI), 1/3);
+    const altitude = semiMajorAxis - earthRadius;
+    
+    return Math.max(0, altitude);
+  }
+
+  classifySatellite(inclination, altitude, eccentricity) {
+    if (altitude > 35000 && eccentricity < 0.1) {
+      return 'Geostationary/Geosynchronous';
+    } else if (altitude > 20000) {
+      return 'High Earth Orbit (HEO)';
+    } else if (altitude > 2000) {
+      return 'Medium Earth Orbit (MEO)';
+    } else if (altitude > 160) {
+      return 'Low Earth Orbit (LEO)';
+    } else {
+      return 'Very Low Earth Orbit';
+    }
   }
 
   // ================================

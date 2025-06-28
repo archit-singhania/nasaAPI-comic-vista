@@ -26,6 +26,7 @@ import {
   Atom,
   ChevronDown
 } from 'lucide-react';
+import Loader from '../components/common/Loader';
 import { motion } from 'framer-motion';
 
 function Home() {
@@ -36,6 +37,7 @@ function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [aiInsights, setAiInsights] = useState([]);
+  const [videoLoaded, setVideoLoaded] = useState(false);
   const [isLoading] = useState(false);
   const containerRef = useRef(null);
 
@@ -429,12 +431,14 @@ function Home() {
       className="min-h-screen relative overflow-hidden bg-black"
     >
       <div className="fixed inset-0 z-0">
+        {!videoLoaded && <Loader />}
         <video
           autoPlay
           muted
           loop
           playsInline
           className="w-full h-full object-cover"
+          onLoadedData={() => setVideoLoaded(true)}
         >
           <source src="https://storage.googleapis.com/cosmic-video-file/nasa-landing-page-vid.mp4" type="video/mp4" />
         </video>

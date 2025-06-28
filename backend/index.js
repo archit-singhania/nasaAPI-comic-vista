@@ -1,54 +1,24 @@
 const express = require('express');
-const app = express();
-require('dotenv').config();
 const cors = require('cors');
+const dotenv = require('dotenv');
+const app = express();
+dotenv.config();
 
-const corsOptions = {
+const allowedOrigins = [
+  'https://nasa-api-comic-vista.vercel.app',
+];
+
+app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'https://nasa-api-comic-vista.vercel.app',
-      'http://localhost:3000',
-      'http://127.0.0.1:3000'
-    ];
-    
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+    return callback(new Error('Not allowed by CORS'));
   },
-  methods: ['GET', 'POST', 'DELETE', 'PUT', 'OPTIONS'],
   credentials: true,
-  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
-};
-
-app.use(cors(corsOptions));
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const allowedOrigins = [
-    'https://nasa-api-comic-vista.vercel.app',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000'
-  ];
-  
-  if (allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
+}));
 
 app.use(express.json());
 
@@ -69,6 +39,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.use('/api/insights', require('./routes/genAI'));
 app.use('/api/apod', require('./routes/apod'));
 app.use('/api/mars', require('./routes/marsRover'));
 app.use('/api/neo', require('./routes/neows'));
@@ -89,25 +60,22 @@ app.use('/api/wmts', require('./routes/wmts'));
 
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {
-    res.status(404).json({
+    return res.status(404).json({
       error: 'API endpoint not found',
       path: req.originalUrl
     });
-  } else {
-    next();
   }
+  next();
 });
 
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
-  
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({
       error: 'CORS policy violation',
       message: 'Origin not allowed'
     });
   }
-  
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
@@ -115,10 +83,3 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 NASA Cosmic Vista Backend`);
-  console.log(`📡 Server running on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Backend URL: https://nasaapi-comic-vista-backend.onrender.com`);
-  console.log(`🎯 Frontend URL: https://nasa-api-comic-vista.vercel.app`);
-});
