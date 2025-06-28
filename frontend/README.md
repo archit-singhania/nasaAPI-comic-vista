@@ -1,4 +1,4 @@
-# 🌌 NASA ☄️🔭AetherLink🧑‍🚀🚀🛰️ — Frontend
+# 🌌 NASA AetherLink — Frontend
 
 Welcome to the **frontend** of this project — a modern, interactive React application that visualizes data from NASA’s public APIs. This frontend delivers a seamless, visually captivating user experience across various NASA datasets including APOD, Mars Rover photos, Near-Earth Asteroids, and more.
 

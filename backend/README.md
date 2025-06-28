@@ -1,4 +1,4 @@
-# 🛰️ NASA ☄️🔭AetherLink🧑‍🚀🚀🛰️ — Backend
+# 🛰️ NASA AetherLink — Backend
 
 Welcome to the **backend** of this project — a modular Express.js server that acts as a middleware API between the frontend and NASA’s public APIs. It simplifies cross-origin issues, hides API keys, unifies data formats, and enables future scalability for caching, logging, and analytics.
 
