@@ -1,28 +1,20 @@
-export default {
-  preset: 'es-jest',
-  testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.js'],
-  globals: {
-    'ts-jest': {
-      useESM: true
-    }
-  },
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1'
-  },
+module.exports = {
+  testEnvironment: 'jsdom',
+  extensionsToTreatAsEsm: ['.js', '.jsx'],
   transform: {
-    '^.+\\.js$': ['babel-jest', { presets: [['@babel/preset-env', { targets: { node: 'current' } }]] }]
+    '^.+\\.(js|jsx)$': 'babel-jest',
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(axios|@testing-library)/)'
+  ],
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+    '^axios$': 'axios/dist/node/axios.cjs'
   },
   testMatch: [
-    '**/__tests__/**/*.test.js',
-    '**/?(*.)+(spec|test).js'
+    '**/__tests__/**/*.test.{js,jsx}',
+    '**/?(*.)+(spec|test).{js,jsx}',
   ],
-  collectCoverage: true,
-  collectCoverageFrom: [
-    'routes/**/*.js',
-    'services/**/*.js',
-    '!**/node_modules/**'
-  ],
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html']
+  setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
 };

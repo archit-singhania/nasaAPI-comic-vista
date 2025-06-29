@@ -1,4 +1,6 @@
 const express = require('express');
+const nodemailer = require('nodemailer');
+const twilio = require('twilio');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const app = express();
@@ -21,6 +23,51 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+const twilioClient = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH);
+
+app.post('/notify', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const timestamp = new Date().toLocaleString();
+  const message = `🚀 Your site was accessed!\nIP: ${ip}\nTime: ${timestamp}`;
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER,
+      subject: 'Site Access Alert',
+      text: message,
+    });
+    console.log('✅ Email sent');
+
+    await twilioClient.messages.create({
+      body: message,
+      from: process.env.TWILIO_SMS_FROM,
+      to: process.env.TWILIO_SMS_TO,
+    });
+    console.log('✅ SMS sent');
+
+    await twilioClient.messages.create({
+      body: message,
+      from: process.env.TWILIO_WHATSAPP_FROM,
+      to: process.env.TWILIO_WHATSAPP_TO,
+    });
+    console.log('✅ WhatsApp message sent');
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('❌ Error sending alerts:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 app.get('/', (req, res) => {
   res.json({

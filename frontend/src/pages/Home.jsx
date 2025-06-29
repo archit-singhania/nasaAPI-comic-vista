@@ -42,6 +42,16 @@ function Home() {
   const containerRef = useRef(null);
 
   useEffect(() => {
+    fetch('http://localhost:5050/notify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ page: 'Home' }),
+    });
+  }, []);
+  
+  useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), 100);
     return () => clearTimeout(timer);
   }, []);
