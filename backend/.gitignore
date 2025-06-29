@@ -1,2 +1,3 @@
 node_modules
-backend/public/nasa-landing-page-vid.mp4
+backend/public/nasa-landing-page-vid.mp4.env
+.env
