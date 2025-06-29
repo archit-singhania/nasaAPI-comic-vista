@@ -8,6 +8,7 @@
     "cors": "^2.8.5",
     "leaflet.fullscreen": "^4.0.0",
     "leaflet.markercluster": "^1.5.3",
+    "nodemailer": "^7.0.3",
     "react-datepicker": "^8.4.0",
     "react-router-dom": "^7.6.3"
   }
