@@ -42,7 +42,7 @@ function Home() {
   const containerRef = useRef(null);
 
   useEffect(() => {
-    fetch('http://localhost:5050/notify', {
+    fetch(`${process.env.REACT_APP_BACKEND_URL}/notify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -50,7 +50,7 @@ function Home() {
       body: JSON.stringify({ page: 'Home' }),
     });
   }, []);
-  
+
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), 100);
     return () => clearTimeout(timer);
