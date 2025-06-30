@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchExoplanet } from '../api/nasaAPI';
 import ExoplanetTable from '../components/ExoplanetTable';
-import Loader from '../components/common/Loader';
+import UnderDevelopmentLoader from '../components/common/underDevLoader';
 
 export default function Exoplanet() {
   const [exoplanets, setExoplanets] = useState([]);
@@ -12,17 +12,18 @@ export default function Exoplanet() {
   const [selectedMethod, setSelectedMethod] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(50);
+  const [showLoader, setShowLoader] = useState(true);
 
-  useEffect(() => {
-    loadExoplanets();
-    loadStats();
-  }, []);
+  // useEffect(() => {
+  //   loadExoplanets();
+  //   loadStats();
+  // }, []);
 
   const loadExoplanets = async (customQuery = null) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const query = customQuery || "SELECT pl_name, hostname, discoverymethod, disc_year, pl_orbper, pl_rade, pl_masse, sy_dist, pl_eqt, st_spectype, sy_snum, sy_pnum FROM ps WHERE default_flag=1 LIMIT 500";
       
       const response = await fetchExoplanet({ query });
@@ -36,37 +37,37 @@ export default function Exoplanet() {
       console.error('Error loading exoplanets:', err);
       setError(err.message || 'Failed to load exoplanet data');
       setExoplanets([]);
-    } finally {
-      setLoading(false);
     }
+    // REMOVED due to in development -> setLoading(false);
   };
+
 
   const loadStats = async () => {
     try {
-      try {
-        const response = await fetch('/api/exoplanet/quick-stats');
-        const data = await response.json();
-        
-        if (response.ok && data.by_discovery_method) {
-          setStats(data.by_discovery_method);
-          return;
-        }
-      } catch (quickStatsError) {
-        console.log('Quick stats failed, trying simple stats...');
+      const response = await fetch('/api/exoplanet/quick-stats');
+      const data = await response.json();
+      
+      if (response.ok && data.by_discovery_method) {
+        setStats(data.by_discovery_method);
+        return;
       }
+    } catch (quickStatsError) {
+      console.log('Quick stats failed, trying simple stats...');
+    }
 
-      try {
-        const response = await fetch('/api/exoplanet/simple-stats');
-        const data = await response.json();
-        
-        if (response.ok && data.by_discovery_method) {
-          setStats(data.by_discovery_method);
-          return;
-        }
-      } catch (simpleStatsError) {
-        console.log('Simple stats failed, trying minimal approach...');
+    try {
+      const response = await fetch('/api/exoplanet/simple-stats');
+      const data = await response.json();
+      
+      if (response.ok && data.by_discovery_method) {
+        setStats(data.by_discovery_method);
+        return;
       }
+    } catch (simpleStatsError) {
+      console.log('Simple stats failed, trying minimal approach...');
+    }
 
+    try {
       const response = await fetchExoplanet({ 
         query: "SELECT discoverymethod FROM ps WHERE default_flag=1 AND discoverymethod IS NOT NULL LIMIT 1000" 
       });
@@ -88,7 +89,9 @@ export default function Exoplanet() {
     } catch (err) {
       console.error('Error loading stats:', err);
     }
+    // setLoading(false) -> due to development
   };
+
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -130,19 +133,29 @@ export default function Exoplanet() {
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-  if (loading) {
+  useEffect(() => {
+    const sequence = setTimeout(() => {
+      setShowLoader(false); 
+      setTimeout(() => {
+        setShowLoader(true); 
+      }, 2000);
+    }, 2000);
+
+    return () => clearTimeout(sequence);
+  }, []);
+
+  if (showLoader) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <Loader />
-          <p className="text-white mt-4">Loading exoplanet data...</p>
-        </div>
-      </div>
+      <UnderDevelopmentLoader 
+        title="NASA Exoplanet Explorer"
+        subtitle="In-development for fetching the exoplanet data from NASA's archive..."
+        estimatedTime="Please wait"
+      />
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-black text-white">
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
@@ -162,11 +175,11 @@ export default function Exoplanet() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by planet or star name..."
                 className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={loading}
+                disabled
               />
               <button
                 type="submit"
-                disabled={loading}
+                disabled
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed rounded-lg transition-colors"
               >
                 {loading ? 'Searching...' : 'Search'}

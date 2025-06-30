@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import ImageSearch from '../components/ImageSearch';
 import { fetchTrendingTopics, fetchPopularSearch, fetchFeaturedCollections, fetchSearchSuggestions, fetchRealTimeTrending } from '../api/nasaAPI';
+import UnderDevelopmentLoader from '../components/common/underDevLoader';
 
 export default function MediaLibrary() {
   const [popularContent, setPopularContent] = useState([]);
@@ -12,44 +13,46 @@ export default function MediaLibrary() {
   const [activeTab, setActiveTab] = useState('search');
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showLoader, setShowLoader] = useState(true);
+
+  useEffect(() => {
+    const sequence = setTimeout(() => {
+      setShowLoader(false); 
+      setTimeout(() => {
+      }, 2000);
+    }, 2000);
+
+    return () => clearTimeout(sequence);
+  }, []);
 
   useEffect(() => {
     const loadInitialContent = async () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const [popularResponse, trendingResponse, featuredResponse, realTimeResponse] = await Promise.allSettled([
           fetchPopularSearch(),
           fetchTrendingTopics(),
           fetchFeaturedCollections(),
           fetchRealTimeTrending()
         ]);
-        
+
         if (popularResponse.status === 'fulfilled') {
           setPopularContent(popularResponse.value || []);
-        } else {
-          console.error('Popular search failed:', popularResponse.reason);
         }
-        
+
         if (trendingResponse.status === 'fulfilled') {
           setTrendingTopics(trendingResponse.value?.trending || []);
-        } else {
-          console.error('Trending topics failed:', trendingResponse.reason);
         }
-        
+
         if (featuredResponse.status === 'fulfilled') {
           setFeaturedCollections(featuredResponse.value?.collections || []);
-        } else {
-          console.error('Featured collections failed:', featuredResponse.reason);
         }
-        
+
         if (realTimeResponse.status === 'fulfilled') {
           setRealTimeTrending(realTimeResponse.value || []);
-        } else {
-          console.error('Real-time trending failed:', realTimeResponse.reason);
         }
-        
       } catch (error) {
         console.error('Error loading initial content:', error);
         setError('Failed to load content. Please check your connection and try again.');
@@ -110,7 +113,7 @@ export default function MediaLibrary() {
         {previewImages.slice(0, maxImages).map((item, index) => {
           const thumbnailUrl = getThumbnailUrl(item);
           if (!thumbnailUrl) return null;
-          
+
           return (
             <div key={index} className="aspect-square bg-gray-200 rounded overflow-hidden">
               <img
@@ -146,8 +149,18 @@ export default function MediaLibrary() {
     </div>
   );
 
+  if (showLoader) {
+    return (
+      <UnderDevelopmentLoader
+        title="NASA Media Library"
+        subtitle="WPolishing the ultimate space media experience with innovative and interactive UI!"
+        estimatedTime="Please Wait"
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-black">
       <div className="bg-gradient-to-br from-blue-900 via-purple-900 to-black text-white">
         <div className="container mx-auto px-4 py-16">
           <div className="text-center max-w-4xl mx-auto">

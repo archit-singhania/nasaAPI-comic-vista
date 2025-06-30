@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import WmtsMap from '../components/WmtsMap';
 import axios from 'axios';
+import UnderDevelopmentLoader from '../components/common/underDevLoader';
 
 const categoryIcons = {
   Wildfires: '🔥',
@@ -23,12 +24,13 @@ const WmtsVisualizer = () => {
   const [layerInfo, setLayerInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showLoader, setShowLoader] = useState(true);
 
   useEffect(() => {
     const fetchBodies = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('https://nasaapi-comic-vista-backend.onrender.com/api/wmts/bodies');
+        const response = await axios.get('http://localhost:5050/api/wmts/bodies');
         setBodies(response.data);
         setError(null);
       } catch (err) {
@@ -48,7 +50,7 @@ const WmtsVisualizer = () => {
 
       try {
         setLoading(true);
-        const response = await axios.get(`https://nasaapi-comic-vista-backend.onrender.com/api/wmts/layers/${selectedBody}`);
+        const response = await axios.get(`http://localhost:5050/api/wmts/layers/${selectedBody}`);
         setLayers(response.data);
         setSelectedLayer(response.data[0] || '');
         setError(null);
@@ -68,7 +70,7 @@ const WmtsVisualizer = () => {
       if (!selectedBody || !selectedLayer) return;
 
       try {
-        const response = await axios.get(`https://nasaapi-comic-vista-backend.onrender.com/api/wmts/info/${selectedBody}/${selectedLayer}`);
+        const response = await axios.get(`http://localhost:5050/api/wmts/info/${selectedBody}/${selectedLayer}`);
         setLayerInfo(response.data);
         setError(null);
       } catch (err) {
@@ -113,8 +115,29 @@ const WmtsVisualizer = () => {
     setLayerInfo(null);
   };
 
+  useEffect(() => {
+    const sequence = setTimeout(() => {
+      setShowLoader(false);
+      setTimeout(() => {
+        setShowLoader(true); 
+      }, 2000);
+    }, 2000);
+
+    return () => clearTimeout(sequence);
+  }, []);
+
+  if (showLoader) {
+    return (
+      <UnderDevelopmentLoader 
+        title="WMTS & EONET Visualizer"
+        subtitle="Building an interactive planetary map with real-time Earth event overlays!"
+        estimatedTime="Please Wait"
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-900 p-4 text-white space-y-6">
+    <div className="min-h-screen bg-black p-4 text-white space-y-6">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-4xl font-bold text-indigo-400 mb-8 text-center">
           🌌 NASA WMTS Explorer with EONET Overlays
